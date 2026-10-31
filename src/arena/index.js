@@ -9,9 +9,20 @@ import {
   currentEntryRound,
   parseRoundId,
   prizePoolLabel,
+  prizePoolShort,
+  prizeSummary,
   recentClosableRoundIds,
   roundStatusAt,
 } from "./rounds.js";
+import {
+  DAILY_PRIZE_USDC,
+  WEEKLY_PRIZE_USDC,
+  FIRST_WEEK_START,
+  currentWeekId,
+  weekIdFromRoundId,
+  weekBounds,
+} from "./prizes.js";
+import { buildWeeklyLeaderboard } from "./weekly.js";
 import { verifyPredictionSignature, buildCanonicalMessage, normalizePrice, normalizeAsset, sanitizeBotName } from "./verify.js";
 import { buildLeaderboard, scoreRound } from "./scoring.js";
 
@@ -32,6 +43,8 @@ export function getArenaPublicConfig() {
   return {
     assets: ARENA_ASSETS,
     prize: prizePoolLabel(),
+    prizeShort: prizePoolShort(),
+    prizes: prizeSummary(),
     rulesUrl: "/v1/arena/rules",
     pageUrl: "/arena",
   };
@@ -64,6 +77,9 @@ export function describeRound(meta, store) {
     closeAt: meta.closeAt,
     status: round.status === "scored" ? "scored" : lifecycle === "upcoming" ? "upcoming" : lifecycle,
     prize: prizePoolLabel(),
+    prizeShort: prizePoolShort(),
+    prizes: prizeSummary(),
+    dailyPrizeUsdc: DAILY_PRIZE_USDC,
     assets: ARENA_ASSETS,
     entryCounts,
     uniqueWallets: wallets.size,
@@ -103,9 +119,16 @@ export function getLeaderboard(roundId) {
     closes: round.closes,
     scoredAt: round.scoredAt,
     prize: prizePoolLabel(),
+    prizeShort: prizePoolShort(),
+    dailyPrizeUsdc: DAILY_PRIZE_USDC,
     ranking: rows,
     incomplete,
   };
+}
+
+export function getWeeklyLeaderboard(weekId) {
+  const store = getStore();
+  return buildWeeklyLeaderboard(store, weekId || undefined);
 }
 
 export function signingHelp(example = {}) {
@@ -198,20 +221,93 @@ export function submitPrediction(body) {
   };
 }
 
-export function exportWinners(roundId) {
-  const board = getLeaderboard(roundId);
-  const winner = board.ranking[0] || null;
+export function exportWinners({ roundId, weekId } = {}) {
+  const store = getStore();
+  const payoutNote =
+    "Manual payout only after sponsor approval. This export is informational — the server cannot send funds.";
+
+  const daily = [];
+  const roundIds = store.listRoundIds().sort();
+  for (const id of roundIds) {
+    const board = getLeaderboard(id);
+    const winner = board.ranking[0] || null;
+    const payout = store.getPayout("daily", id);
+    daily.push({
+      type: "daily",
+      roundId: id,
+      status: board.status,
+      scoredAt: board.scoredAt,
+      amountUsdc: DAILY_PRIZE_USDC,
+      wallet: winner?.wallet || null,
+      botName: winner?.botName || null,
+      score: winner?.avgAbsPctError ?? null,
+      paid: payout.paid,
+      paidAt: payout.paidAt,
+      note: payout.note,
+      eligible: Boolean(winner),
+    });
+  }
+
+  const weeks = new Set([FIRST_WEEK_START, currentWeekId()]);
+  for (const id of roundIds) {
+    try {
+      weeks.add(weekIdFromRoundId(id));
+    } catch {
+      /* ignore */
+    }
+  }
+  for (const wid of Object.keys(store.listPayouts().weekly || {})) weeks.add(wid);
+  if (weekId) weeks.add(weekId);
+
+  const weekly = [];
+  for (const wid of [...weeks].sort()) {
+    if (wid < FIRST_WEEK_START) continue;
+    const board = getWeeklyLeaderboard(wid);
+    const winner = board.winner;
+    const payout = store.getPayout("weekly", wid);
+    weekly.push({
+      type: "weekly",
+      weekId: wid,
+      startRoundId: board.startRoundId,
+      endRoundId: board.endRoundId,
+      amountUsdc: WEEKLY_PRIZE_USDC,
+      wallet: winner?.wallet || null,
+      botName: winner?.botName || null,
+      score: winner?.avgAbsPctError ?? null,
+      roundsEntered: winner?.roundsEntered ?? 0,
+      paid: payout.paid,
+      paidAt: payout.paidAt,
+      note: payout.note,
+      eligible: Boolean(winner),
+    });
+  }
+
+  const dailyOut = roundId ? daily.filter((d) => d.roundId === roundId) : daily;
+  const weeklyOut = weekId ? weekly.filter((w) => w.weekId === weekId) : weekly;
   return {
-    roundId: board.roundId,
-    status: board.status,
-    closes: board.closes,
-    scoredAt: board.scoredAt,
     prize: prizePoolLabel(),
-    payoutNote:
-      "Manual payout only after sponsor approval. This export is informational — the server cannot send funds.",
-    winner,
-    ranking: board.ranking,
+    prizeShort: prizePoolShort(),
+    prizes: prizeSummary(),
+    payoutNote,
+    daily: dailyOut,
+    weekly: weeklyOut,
+    owedUnpaid: [...dailyOut, ...weeklyOut].filter((x) => x.eligible && !x.paid),
   };
+}
+
+export function setPayoutAdmin({ type, id, paid, note }) {
+  const store = getStore();
+  if (type !== "daily" && type !== "weekly") {
+    throw Object.assign(new Error("type must be daily or weekly"), { code: "invalid_type", status: 400 });
+  }
+  if (!id) {
+    throw Object.assign(new Error("id required (roundId or weekId)"), { code: "missing_id", status: 400 });
+  }
+  if (typeof paid !== "boolean") {
+    throw Object.assign(new Error("paid must be boolean"), { code: "invalid_paid", status: 400 });
+  }
+  const row = store.setPayout(type, id, { paid, note });
+  return { ok: true, type, id, ...row };
 }
 
 export function deletePredictionAdmin({ roundId, wallet, asset }) {

@@ -13,6 +13,8 @@ function emptyDb() {
     version: 1,
     updatedAt: null,
     rounds: {},
+    // Manual payout tracking only (server never sends funds).
+    payouts: { daily: {}, weekly: {} },
   };
 }
 
@@ -42,6 +44,7 @@ export class ArenaStore {
         throw new Error("invalid arena db shape");
       }
       this.db = parsed;
+      if (!this.db.payouts) this.db.payouts = { daily: {}, weekly: {} };
     } catch (err) {
       // Keep going with empty db but do not clobber a corrupt file silently —
       // rename aside once and start fresh.
@@ -180,5 +183,42 @@ export class ArenaStore {
       }
     }
     this._persist();
+  }
+
+  _ensurePayouts() {
+    if (!this.db.payouts) this.db.payouts = { daily: {}, weekly: {} };
+    if (!this.db.payouts.daily) this.db.payouts.daily = {};
+    if (!this.db.payouts.weekly) this.db.payouts.weekly = {};
+  }
+
+  getPayout(type, id) {
+    this._ensurePayouts();
+    const bucket = type === "weekly" ? this.db.payouts.weekly : this.db.payouts.daily;
+    return bucket[id] || { paid: false, paidAt: null, note: null };
+  }
+
+  setPayout(type, id, { paid, note } = {}) {
+    this._ensurePayouts();
+    if (type !== "daily" && type !== "weekly") {
+      throw Object.assign(new Error("type must be daily or weekly"), { code: "invalid_type" });
+    }
+    const bucket = type === "weekly" ? this.db.payouts.weekly : this.db.payouts.daily;
+    const prev = bucket[id] || { paid: false, paidAt: null, note: null };
+    const nextPaid = Boolean(paid);
+    bucket[id] = {
+      paid: nextPaid,
+      paidAt: nextPaid ? new Date().toISOString() : null,
+      note: note != null ? String(note).slice(0, 200) : prev.note,
+    };
+    this._persist();
+    return bucket[id];
+  }
+
+  listPayouts() {
+    this._ensurePayouts();
+    return {
+      daily: { ...this.db.payouts.daily },
+      weekly: { ...this.db.payouts.weekly },
+    };
   }
 }

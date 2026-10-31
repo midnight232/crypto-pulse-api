@@ -8,12 +8,15 @@ import {
   exportWinners,
   getCurrentRound,
   getLeaderboard,
+  getWeeklyLeaderboard,
   getRules,
   getRoundById,
+  setPayoutAdmin,
   signingHelp,
   startArenaScorer,
   submitPrediction,
 } from "./index.js";
+import { currentWeekId } from "./prizes.js";
 import { renderArenaHtml } from "./page.js";
 
 function adminAuthorized(req) {
@@ -26,7 +29,6 @@ function adminAuthorized(req) {
   const q = typeof req.query.token === "string" ? req.query.token.trim() : "";
   const got = bearer || q;
   if (!got || got.length !== expected.length) return false;
-  // Constant-time-ish compare
   let mismatch = 0;
   for (let i = 0; i < expected.length; i++) {
     mismatch |= expected.charCodeAt(i) ^ got.charCodeAt(i);
@@ -36,25 +38,21 @@ function adminAuthorized(req) {
 
 function toCsv(exportData) {
   const lines = [
-    "rank,wallet,botName,avgAbsPctError,firstSubmittedAt,BTC_predicted,BTC_error,ETH_predicted,ETH_error,SOL_predicted,SOL_error",
+    "type,id,amountUsdc,wallet,botName,score,roundsEntered,paid,paidAt,eligible",
   ];
-  for (const r of exportData.ranking || []) {
-    const b = r.perAsset?.BTC || {};
-    const e = r.perAsset?.ETH || {};
-    const s = r.perAsset?.SOL || {};
+  for (const r of [...(exportData.daily || []), ...(exportData.weekly || [])]) {
     lines.push(
       [
-        r.rank,
-        r.wallet,
+        r.type,
+        r.roundId || r.weekId,
+        r.amountUsdc,
+        r.wallet || "",
         JSON.stringify(r.botName || ""),
-        r.avgAbsPctError ?? "",
-        r.firstSubmittedAt || "",
-        b.predicted ?? "",
-        b.absPctError ?? "",
-        e.predicted ?? "",
-        e.absPctError ?? "",
-        s.predicted ?? "",
-        s.absPctError ?? "",
+        r.score ?? "",
+        r.roundsEntered ?? "",
+        r.paid,
+        r.paidAt || "",
+        r.eligible,
       ].join(","),
     );
   }
@@ -77,9 +75,11 @@ export function mountArena(app) {
     try {
       const current = getCurrentRound();
       const leaderboard = getLeaderboard(current.roundId);
+      const weekly = getWeeklyLeaderboard(currentWeekId());
       const html = renderArenaHtml({
         current,
         leaderboard,
+        weekly,
         rules: getRules(),
         baseUrl: publicBaseUrl(req),
       });
@@ -121,6 +121,18 @@ export function mountArena(app) {
     }
   });
 
+  app.get("/v1/arena/leaderboard/weekly", (req, res) => {
+    try {
+      const week =
+        typeof req.query.week === "string" && req.query.week.trim()
+          ? req.query.week.trim()
+          : currentWeekId();
+      res.json(getWeeklyLeaderboard(week));
+    } catch (err) {
+      res.status(400).json({ error: err.code || "bad_request", message: err.message });
+    }
+  });
+
   app.post("/v1/arena/predict", predictLimiter, (req, res) => {
     try {
       const result = submitPrediction(req.body || {});
@@ -140,8 +152,14 @@ export function mountArena(app) {
       return res.status(401).json({ error: "unauthorized" });
     }
     try {
-      const id = typeof req.query.round === "string" ? req.query.round.trim() : "";
-      const data = exportWinners(id || getCurrentRound().roundId);
+      const roundId =
+        typeof req.query.round === "string" ? req.query.round.trim() : "";
+      const weekId =
+        typeof req.query.week === "string" ? req.query.week.trim() : "";
+      const data = exportWinners({
+        roundId: roundId || undefined,
+        weekId: weekId || undefined,
+      });
       const format = String(req.query.format || "json").toLowerCase();
       if (format === "csv") {
         res.type("text/csv").send(toCsv(data));
@@ -150,6 +168,27 @@ export function mountArena(app) {
       }
     } catch (err) {
       res.status(400).json({ error: err.code || "export_failed", message: err.message });
+    }
+  });
+
+  app.post("/v1/arena/admin/payout", (req, res) => {
+    if (!adminAuthorized(req)) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    try {
+      const body = req.body || {};
+      const result = setPayoutAdmin({
+        type: body.type,
+        id: body.id || body.roundId || body.weekId,
+        paid: body.paid,
+        note: body.note,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(err.status || 400).json({
+        error: err.code || "payout_update_failed",
+        message: err.message,
+      });
     }
   });
 

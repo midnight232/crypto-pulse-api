@@ -3,7 +3,7 @@
   "name": "io.github.midnight232/crypto-pulse",
   "title": "Crypto Pulse",
   "description": "One call: spots+F&G+funding+DefiLlama+summary for agents. Free sample; x402 USDC on Solana.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "repository": {
     "url": "https://github.com/midnight232/crypto-pulse-api",
     "source": "github"

@@ -48,7 +48,7 @@ import { mountArena } from "./arena/routes.js";
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -364,6 +364,7 @@ app.get("/", (req, res) => {
       "GET /v1/arena/round",
       "POST /v1/arena/predict",
       "GET /v1/arena/leaderboard",
+      "GET /v1/arena/leaderboard/weekly",
       "GET /llms.txt",
       "GET /.well-known/x402",
       "GET /openapi.json",

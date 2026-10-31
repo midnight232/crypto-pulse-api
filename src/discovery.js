@@ -264,6 +264,7 @@ export function buildWellKnownX402(req) {
       { url: `${base}/v1/arena/round`, method: "GET" },
       { url: `${base}/v1/arena/predict`, method: "POST", note: "Signed free prediction" },
       { url: `${base}/v1/arena/leaderboard`, method: "GET" },
+      { url: `${base}/v1/arena/leaderboard/weekly`, method: "GET", note: "Weekly Mon–Sun UTC leaderboard" },
       { url: `${base}/openapi.json`, method: "GET" },
       { url: `${base}/llms.txt`, method: "GET" },
       { url: `${base}/.well-known/x402`, method: "GET" },
@@ -278,7 +279,7 @@ export function buildOpenApi(req) {
     openapi: "3.1.0",
     info: {
       title: "Crypto Pulse API",
-      version: "0.4.0",
+      version: "0.4.1",
       description: serviceDescription(),
       contact: { url: base },
     },

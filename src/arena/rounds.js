@@ -9,7 +9,10 @@
  * Free entry. No stakes. Sponsor-funded prizes paid manually after review.
  */
 
+import { prizePoolLabel, prizePoolShort, prizeSummary } from "./prizes.js";
+
 export const ARENA_ASSETS = ["BTC", "ETH", "SOL"];
+export { prizePoolLabel, prizePoolShort, prizeSummary };
 export const LOCK_HOURS = 12;
 export const OPEN_LEAD_HOURS = 36;
 
@@ -84,12 +87,6 @@ export function recentClosableRoundIds(now = new Date(), lookbackDays = 3) {
   return ids;
 }
 
-export function prizePoolLabel() {
-  const raw = (process.env.ARENA_PRIZE_POOL || "").trim();
-  if (!raw) return "Prize pool: to be announced by the sponsor";
-  return `Prize pool: ${raw}`;
-}
-
 export function arenaRules() {
   return {
     name: "Crypto Pulse Prediction Arena",
@@ -120,8 +117,11 @@ export function arenaRules() {
     },
     prizes: {
       funding: "Sponsor-funded by the operator (Matt). Not funded by entrants.",
-      payout: "Manual only, after sponsor review. The server never holds payout keys and never sends funds automatically.",
+      payout:
+        "Manual only, after sponsor review, usually within a few days of the period ending. Paid in USDC on Solana to the winning wallet. The server never holds payout keys and never sends funds automatically. If there is no eligible entry, no prize.",
       amount: prizePoolLabel(),
+      short: prizePoolShort(),
+      details: prizeSummary(),
       discretion:
         "Sponsor may delay, adjust, or withhold a prize for suspected multi-wallet farming or rule abuse. Void where prohibited.",
     },

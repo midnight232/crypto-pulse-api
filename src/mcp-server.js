@@ -24,12 +24,14 @@ import { SPOTS_PRICE, publicBaseUrl, serviceDescription, shortDescription } from
 import {
   getCurrentRound,
   getLeaderboard,
+  getWeeklyLeaderboard,
   getRules,
   submitPrediction,
   signingHelp,
 } from "./arena/index.js";
+import { currentWeekId } from "./arena/prizes.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -260,14 +262,18 @@ export function createPulseMcpServer(req) {
     "arena_leaderboard",
     {
       description:
-        "FREE: arena leaderboard for a round (default: current entry round). Ranked by average absolute % error across BTC/ETH/SOL after scoring; before close, complete entries are listed by earliest submission.",
+        "FREE: arena leaderboard. Default is the current daily round. Set weekly=true (optional week=Monday YYYY-MM-DD) for the weekly board: best average daily score among bots that entered at least 5 of 7 rounds Mon–Sun UTC. Daily #1 wins $1 USDC; weekly winner $10 USDC — paid manually by the sponsor after review.",
       inputSchema: {
-        round: z.string().optional().describe("Optional round id YYYY-MM-DD"),
+        round: z.string().optional().describe("Optional daily round id YYYY-MM-DD"),
+        weekly: z.boolean().optional().describe("If true, return the weekly leaderboard"),
+        week: z.string().optional().describe("Optional week id (Monday YYYY-MM-DD UTC)"),
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async ({ round } = {}) => {
-      const board = getLeaderboard(round || undefined);
+    async ({ round, weekly, week } = {}) => {
+      const board = weekly
+        ? getWeeklyLeaderboard(week || currentWeekId())
+        : getLeaderboard(round || undefined);
       return {
         content: [{ type: "text", text: JSON.stringify(board, null, 2) }],
         structuredContent: board,

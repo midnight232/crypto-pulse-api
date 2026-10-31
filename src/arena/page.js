@@ -1,8 +1,8 @@
 /**
- * Simple public HTML page for /arena — rules, current round, leaderboard.
+ * Simple public HTML page for /arena — rules, current round, leaderboards.
  * No fake stats. Prize text comes from config.
  */
-import { prizePoolLabel } from "./rounds.js";
+import { prizePoolShort, prizeSummary } from "./prizes.js";
 
 function esc(s) {
   return String(s ?? "")
@@ -17,23 +17,34 @@ function fmtTime(iso) {
   return `${esc(iso)} (UTC)`;
 }
 
-export function renderArenaHtml({ current, leaderboard, rules, baseUrl }) {
-  const prize = esc(prizePoolLabel());
-  const rows = (leaderboard?.ranking || [])
+function rankRows(ranking, emptyMsg) {
+  const rows = (ranking || [])
     .slice(0, 25)
     .map((r) => {
       const err =
-        r.avgAbsPctError == null ? "—" : `${r.avgAbsPctError.toFixed(4)}%`;
+        r.avgAbsPctError == null ? "—" : `${Number(r.avgAbsPctError).toFixed(4)}%`;
+      const extra =
+        r.roundsEntered != null
+          ? `<td>${esc(r.roundsEntered)}/${esc(r.minRoundsRequired || 5)}</td>`
+          : `<td>${esc(r.firstSubmittedAt || "—")}</td>`;
       return `<tr>
         <td>${r.rank}</td>
         <td><code>${esc(r.wallet)}</code></td>
         <td>${esc(r.botName || "—")}</td>
         <td>${esc(err)}</td>
-        <td>${esc(r.firstSubmittedAt || "—")}</td>
+        ${extra}
       </tr>`;
     })
     .join("\n");
+  if (!rows) {
+    return `<tr><td colspan="5" class="muted">${esc(emptyMsg)}</td></tr>`;
+  }
+  return rows;
+}
 
+export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl }) {
+  const prizes = prizeSummary();
+  const short = esc(prizePoolShort());
   const status = esc(current?.status || "—");
   const accepting = current?.acceptingEntries
     ? `<span class="ok">accepting entries</span>`
@@ -55,14 +66,13 @@ export function renderArenaHtml({ current, leaderboard, rules, baseUrl }) {
     .muted { color: var(--muted); }
     .card { background: var(--card); border: 1px solid #243056; border-radius: 12px; padding: 1rem 1.15rem; margin: 1rem 0; }
     code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; }
-    pre { background: #0a0f1c; padding: .85rem 1rem; border-radius: 8px; overflow-x: auto; }
     a { color: var(--accent); }
     table { width: 100%; border-collapse: collapse; font-size: .92rem; }
     th, td { text-align: left; padding: .45rem .35rem; border-bottom: 1px solid #243056; vertical-align: top; }
     th { color: var(--muted); font-weight: 600; }
     .ok { color: var(--ok); font-weight: 600; }
     .locked { color: var(--warn); font-weight: 600; }
-    .pill { display:inline-block; background:#1c2545; border-radius:999px; padding:.15rem .65rem; font-size:.85rem; margin-right:.35rem; }
+    .pill { display:inline-block; background:#1c2545; border-radius:999px; padding:.15rem .65rem; font-size:.85rem; margin-right:.35rem; margin-bottom:.35rem; }
     ul.compact li { margin: .25rem 0; }
   </style>
 </head>
@@ -70,7 +80,16 @@ export function renderArenaHtml({ current, leaderboard, rules, baseUrl }) {
 <main>
   <h1>Crypto Pulse Prediction Arena</h1>
   <p class="muted">Free skill contest for bots. No purchase necessary. No entry fee. No wagering. Sponsor-funded prizes are paid manually after review — this server never sends funds.</p>
-  <p><span class="pill">${prize}</span><span class="pill">Assets: BTC · ETH · SOL</span></p>
+  <p><span class="pill">${short}</span><span class="pill">Assets: BTC · ETH · SOL</span></p>
+
+  <div class="card">
+    <h2 style="margin-top:0">Prizes</h2>
+    <ul class="compact">
+      <li>${esc(prizes.daily.text)}</li>
+      <li>${esc(prizes.weekly.text)}</li>
+      <li>${esc(prizes.payout)}</li>
+    </ul>
+  </div>
 
   <div class="card">
     <h2 style="margin-top:0">Current round</h2>
@@ -80,22 +99,33 @@ export function renderArenaHtml({ current, leaderboard, rules, baseUrl }) {
       <li>Entry cutoff: ${fmtTime(current?.cutoffAt)}</li>
       <li>Close / settlement price: ${fmtTime(current?.closeAt)}</li>
       <li>Unique wallets entered: <strong>${esc(current?.uniqueWallets ?? 0)}</strong></li>
+      <li>Daily prize if #1 after scoring: <strong>$${esc(prizes.daily.amountUsdc)} USDC</strong></li>
     </ul>
     <p class="muted">Predict each asset's USD spot at settlement (CoinGecko, same source as this API). Ranked by average absolute % error across all three assets. Ties go to the earlier first submission.</p>
   </div>
 
-  <h2>Leaderboard${current?.roundId ? ` · ${esc(current.roundId)}` : ""}</h2>
+  <h2>Daily leaderboard${current?.roundId ? ` · ${esc(current.roundId)}` : ""}</h2>
   <div class="card" style="overflow-x:auto">
-    ${
-      rows
-        ? `<table>
+    <table>
       <thead><tr><th>#</th><th>Wallet</th><th>Bot</th><th>Avg |error|</th><th>First submit</th></tr></thead>
       <tbody>
-        ${rows || `<tr><td colspan="5" class="muted">No complete entries yet (need BTC+ETH+SOL from the same wallet).</td></tr>`}
+        ${rankRows(leaderboard?.ranking, "No complete entries yet (need BTC+ETH+SOL from the same wallet).")}
       </tbody>
-    </table>`
-        : `<p class="muted">No entries yet.</p>`
-    }
+    </table>
+  </div>
+
+  <h2>Weekly leaderboard${weekly?.weekId ? ` · ${esc(weekly.weekId)}` : ""}</h2>
+  <div class="card">
+    <p class="muted">${esc(weekly?.label || "")}. Need at least ${esc(weekly?.minRounds ?? 5)} of 7 daily rounds. Weekly prize: $${esc(weekly?.weeklyPrizeUsdc ?? 10)} USDC.</p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>#</th><th>Wallet</th><th>Bot</th><th>Avg |error|</th><th>Rounds</th></tr></thead>
+        <tbody>
+          ${rankRows(weekly?.ranking, "No eligible weekly entrants yet (need 5+ complete daily rounds).")}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">API: <a href="${esc(baseUrl)}/v1/arena/leaderboard/weekly">/v1/arena/leaderboard/weekly</a></p>
   </div>
 
   <h2>How to enter (free)</h2>
@@ -111,7 +141,8 @@ export function renderArenaHtml({ current, leaderboard, rules, baseUrl }) {
   <div class="card">
     <ul class="compact">
       <li>Free to enter. No purchase necessary. No stakes or paid entry.</li>
-      <li>Prizes are sponsor-funded and paid manually to the winning wallet after review. Amount: ${prize}.</li>
+      <li>${esc(prizes.daily.text)} ${esc(prizes.weekly.text)}</li>
+      <li>${esc(prizes.payout)}</li>
       <li>One serious entry per operator. Obvious multi-wallet farming may be disqualified.</li>
       <li>Void where prohibited. Not financial advice. Skill contest, not gambling.</li>
     </ul>
