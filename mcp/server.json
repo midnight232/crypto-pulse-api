@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.midnight232/crypto-pulse",
+  "title": "Crypto Pulse",
+  "description": "One call replaces four crypto data fetches for AI agents: spots, Fear & Greed, Hyperliquid funding, DefiLlama TVL/yields, plus a plain-English summary. Free sample tool; paid pulse/spots via x402 USDC on Solana.",
+  "version": "0.3.2",
+  "repository": {
+    "url": "https://github.com/midnight232/crypto-pulse-api",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://137-184-201-7.sslip.io/mcp"
+    }
+  ]
+}

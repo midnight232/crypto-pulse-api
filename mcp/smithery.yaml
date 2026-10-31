@@ -1,0 +1,29 @@
+# Smithery config draft — DO NOT publish without Matt's approval.
+# Docs: https://smithery.ai/
+name: crypto-pulse
+description: >
+  One call replaces four crypto data fetches for AI agents: CoinGecko spots,
+  Fear & Greed, Hyperliquid funding, DefiLlama TVL/yields, plus a plain-English
+  summary. Free get_market_sample; paid tools return x402 payment requirements
+  for Solana USDC HTTP endpoints.
+homepage: https://137-184-201-7.sslip.io/
+repository: https://github.com/midnight232/crypto-pulse-api
+# Remote Streamable HTTP (preferred for Smithery remote listing)
+remote:
+  transport: streamable-http
+  url: https://137-184-201-7.sslip.io/mcp
+# Optional local stdio package entry (not published to npm yet)
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      PUBLIC_BASE_URL:
+        type: string
+        default: https://137-184-201-7.sslip.io
+  commandFunction: |-
+    (config) => ({
+      command: "node",
+      args: ["mcp/stdio.js"],
+      env: { PUBLIC_BASE_URL: config.PUBLIC_BASE_URL || "https://137-184-201-7.sslip.io" }
+    })

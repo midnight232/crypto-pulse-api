@@ -1,0 +1,20 @@
+{
+  "name": "crypto-pulse-mcp",
+  "version": "0.3.2",
+  "private": true,
+  "description": "Local stdio MCP proxy for Crypto Pulse (points at the live HTTPS API). Not published to npm.",
+  "type": "module",
+  "bin": {
+    "crypto-pulse-mcp": "./stdio.js"
+  },
+  "mcpName": "io.github.midnight232/crypto-pulse",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/midnight232/crypto-pulse-api.git"
+  },
+  "homepage": "https://137-184-201-7.sslip.io",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}

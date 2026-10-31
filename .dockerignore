@@ -1,0 +1,12 @@
+node_modules
+.devnet-keys
+.env
+.env.*
+!.env.example
+*.log
+.git
+dist
+.do-token
+.deploy-ssh
+.mainnet-keys
+.cdp-keys
