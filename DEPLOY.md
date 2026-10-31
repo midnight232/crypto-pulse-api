@@ -213,3 +213,8 @@ As of Oct 30, 2026 the live droplet settles through **Coinbase CDP** so resource
 - Set `ARENA_ADMIN_TOKEN` in `/etc/crypto-pulse.env` (never commit). Protects `GET /v1/arena/admin/export` and `DELETE /v1/arena/admin/prediction`.
 - Optional `ARENA_PRIZE_POOL` text (empty → “Prize pool: to be announced by the sponsor”).
 - Scorer runs in-process every 60s after settlement midnight; it only writes rankings — **no automatic payouts**.
+
+### Arena scoring + backups
+
+- Scoring runs **in-process every 60 seconds** and scores any stored round whose `closeAt` (00:00 UTC) has passed. There is no separate cron at midnight; within about a minute after 00:00 UTC the round is scored when CoinGecko is reachable.
+- Daily backup (on the Droplet): `/etc/cron.daily/arena-backup` copies `/opt/crypto-pulse-api/data/arena.json` to `/opt/crypto-pulse-api/data/backups/` (7-day retention).

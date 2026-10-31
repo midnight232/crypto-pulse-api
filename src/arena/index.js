@@ -169,6 +169,11 @@ export function submitPrediction(body) {
   }
   store.ensureRound(meta);
   const lifecycle = roundStatusAt(meta);
+  // Persist accurate lifecycle so locked/closed rounds are not left marked "open".
+  if (lifecycle === "locked" || lifecycle === "closed") {
+    const round = store.getRound(meta.roundId);
+    if (round && round.status !== "scored") store.setRoundStatus(meta.roundId, "locked");
+  }
   if (lifecycle !== "open") {
     throw Object.assign(
       new Error(`round is ${lifecycle}; entries only accepted while open (before cutoff)`),
@@ -244,7 +249,7 @@ export function exportWinners({ roundId, weekId } = {}) {
       paid: payout.paid,
       paidAt: payout.paidAt,
       note: payout.note,
-      eligible: Boolean(winner),
+      eligible: Boolean(winner) && board.status === "scored",
     });
   }
 
@@ -278,7 +283,7 @@ export function exportWinners({ roundId, weekId } = {}) {
       paid: payout.paid,
       paidAt: payout.paidAt,
       note: payout.note,
-      eligible: Boolean(winner),
+      eligible: Boolean(winner) && winner.avgAbsPctError != null,
     });
   }
 
