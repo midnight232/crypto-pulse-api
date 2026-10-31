@@ -6,12 +6,12 @@ description: >
   Fear & Greed, Hyperliquid funding, DefiLlama TVL/yields, plus a plain-English
   summary. Free get_market_sample; paid tools return x402 payment requirements
   for Solana USDC HTTP endpoints.
-homepage: https://137-184-201-7.sslip.io/
+homepage: https://cryptopulseapi.com/
 repository: https://github.com/midnight232/crypto-pulse-api
 # Remote Streamable HTTP (preferred for Smithery remote listing)
 remote:
   transport: streamable-http
-  url: https://137-184-201-7.sslip.io/mcp
+  url: https://cryptopulseapi.com/mcp
 # Optional local stdio package entry (not published to npm yet)
 startCommand:
   type: stdio
@@ -20,10 +20,10 @@ startCommand:
     properties:
       PUBLIC_BASE_URL:
         type: string
-        default: https://137-184-201-7.sslip.io
+        default: https://cryptopulseapi.com
   commandFunction: |-
     (config) => ({
       command: "node",
       args: ["mcp/stdio.js"],
-      env: { PUBLIC_BASE_URL: config.PUBLIC_BASE_URL || "https://137-184-201-7.sslip.io" }
+      env: { PUBLIC_BASE_URL: config.PUBLIC_BASE_URL || "https://cryptopulseapi.com" }
     })

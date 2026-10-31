@@ -3,7 +3,7 @@
   "name": "io.github.midnight232/crypto-pulse",
   "title": "Crypto Pulse",
   "description": "One call: spots+F&G+funding+DefiLlama+summary for agents. Free sample; x402 USDC on Solana.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "repository": {
     "url": "https://github.com/midnight232/crypto-pulse-api",
     "source": "github"
@@ -11,8 +11,8 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://137-184-201-7.sslip.io/mcp"
+      "url": "https://cryptopulseapi.com/mcp"
     }
   ],
-  "websiteUrl": "https://137-184-201-7.sslip.io/"
+  "websiteUrl": "https://cryptopulseapi.com/"
 }

@@ -14,11 +14,35 @@ import {
   resolvePayTo,
 } from "./config.js";
 
-const BASE = process.env.PUBLIC_BASE_URL || "https://137-184-201-7.sslip.io";
+const DEFAULT_PUBLIC_BASE =
+  process.env.PUBLIC_BASE_URL || "https://cryptopulseapi.com";
 const SPOTS_PRICE = process.env.SPOTS_PRICE || "$0.005";
 
-export function publicBaseUrl() {
-  return BASE.replace(/\/$/, "");
+/** Hosts we will echo into discovery docs / MCP payment hints. */
+const KNOWN_PUBLIC_HOSTS = new Set([
+  "cryptopulseapi.com",
+  "www.cryptopulseapi.com",
+  "137-184-201-7.sslip.io",
+]);
+
+/**
+ * Canonical public base URL.
+ * When called with an Express req whose Host is a known public host, derive
+ * https://<host> so sslip.io clients keep seeing sslip URLs while the new
+ * domain is canonical via PUBLIC_BASE_URL / default. www → apex.
+ * x402 PAYMENT-REQUIRED resource URLs already come from the request host
+ * inside @x402/express, independent of this helper.
+ */
+export function publicBaseUrl(req) {
+  const hostHeader = req?.headers?.host || req?.get?.("host");
+  if (hostHeader) {
+    const host = String(hostHeader).split(",")[0].trim().split(":")[0].toLowerCase();
+    if (KNOWN_PUBLIC_HOSTS.has(host)) {
+      const canon = host === "www.cryptopulseapi.com" ? "cryptopulseapi.com" : host;
+      return `https://${canon}`;
+    }
+  }
+  return DEFAULT_PUBLIC_BASE.replace(/\/$/, "");
 }
 
 /**
@@ -120,8 +144,8 @@ function usdToAtomic(priceStr) {
   return String(Math.round(n * 1e6));
 }
 
-export function buildLlmsTxt() {
-  const base = publicBaseUrl();
+export function buildLlmsTxt(req) {
+  const base = publicBaseUrl(req);
   const payTo = resolvePayTo();
   return `# Crypto Pulse
 
@@ -174,8 +198,8 @@ export function buildLlmsTxt() {
 `;
 }
 
-export function buildWellKnownX402() {
-  const base = publicBaseUrl();
+export function buildWellKnownX402(req) {
+  const base = publicBaseUrl(req);
   const payTo = resolvePayTo();
   return {
     x402Version: 2,
@@ -240,14 +264,14 @@ export function buildWellKnownX402() {
   };
 }
 
-export function buildOpenApi() {
-  const base = publicBaseUrl();
+export function buildOpenApi(req) {
+  const base = publicBaseUrl(req);
   const payTo = resolvePayTo();
   return {
     openapi: "3.1.0",
     info: {
       title: "Crypto Pulse API",
-      version: "0.3.2",
+      version: "0.3.3",
       description: serviceDescription(),
       contact: { url: base },
     },

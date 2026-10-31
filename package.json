@@ -1,6 +1,6 @@
 {
   "name": "crypto-pulse-api",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "x402 paid crypto market pulse for AI agents: one call replaces four (spots, Fear & Greed, funding, DeFi) + summary; free sample + MCP",
   "type": "module",
   "main": "src/server.js",
@@ -47,7 +47,7 @@
     "type": "git",
     "url": "git+https://github.com/midnight232/crypto-pulse-api.git"
   },
-  "homepage": "https://137-184-201-7.sslip.io",
+  "homepage": "https://cryptopulseapi.com",
   "bugs": {
     "url": "https://github.com/midnight232/crypto-pulse-api/issues"
   },

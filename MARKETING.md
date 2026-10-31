@@ -2,7 +2,7 @@
 
 **Do not submit these yet** without Matt’s go-ahead (except PayAI/CDP which already index via settlement). Drafts only for registries that need accounts.
 
-Live base URL: `https://137-184-201-7.sslip.io`  
+Live base URL: `https://cryptopulseapi.com` (legacy: `https://137-184-201-7.sslip.io` still served)  
 PayTo (Phantom): `37CP6YemJJQ6sMu4Ue6C7pgC7BXkN6iCcCHVeZunvPod`  
 Network: `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (Solana mainnet)  
 Facilitator (live): Coinbase CDP `https://api.cdp.coinbase.com/platform/v2/x402`  
@@ -29,15 +29,15 @@ One call replaces four crypto data fetches for AI agents: (1) BTC/ETH/SOL/HYPE s
 `crypto`, `market-data`, `solana`, `agents`, `x402`, `fear-greed`, `funding`, `defi`, `hyperliquid`, `coingecko`, `defillama`, `btc`, `eth`, `sol`, `mcp`, `summary`
 
 **URLs to include:**
-- Home / agent summary: `https://137-184-201-7.sslip.io/`
-- Free sample: `https://137-184-201-7.sslip.io/v1/sample`
-- MCP: `https://137-184-201-7.sslip.io/mcp`
-- Paid full pulse: `https://137-184-201-7.sslip.io/v1/pulse`
-- Paid spots: `https://137-184-201-7.sslip.io/v1/spots`
-- llms.txt: `https://137-184-201-7.sslip.io/llms.txt`
-- OpenAPI: `https://137-184-201-7.sslip.io/openapi.json`
-- Well-known: `https://137-184-201-7.sslip.io/.well-known/x402`
-- Health: `https://137-184-201-7.sslip.io/health`
+- Home / agent summary: `https://cryptopulseapi.com/`
+- Free sample: `https://cryptopulseapi.com/v1/sample`
+- MCP: `https://cryptopulseapi.com/mcp`
+- Paid full pulse: `https://cryptopulseapi.com/v1/pulse`
+- Paid spots: `https://cryptopulseapi.com/v1/spots`
+- llms.txt: `https://cryptopulseapi.com/llms.txt`
+- OpenAPI: `https://cryptopulseapi.com/openapi.json`
+- Well-known: `https://cryptopulseapi.com/.well-known/x402`
+- Health: `https://cryptopulseapi.com/health`
 
 **Pricing line:** $0.02 USDC / full pulse · $0.005 USDC / spots-only · free sample (stale) · Solana mainnet · exact scheme · CDP facilitator (PayAI listing retained)
 
@@ -52,7 +52,7 @@ One call replaces four crypto data fetches for AI agents: (1) BTC/ETH/SOL/HYPE s
 | $0.003 | Fear & Greed clones | payai.agentstools.dev / others | Sentiment only |
 | $0.004 | Crypto market pulse (agent402) | https://agent402.tools/api/crypto-market-pulse | Perp breadth; closest peer |
 | $0.005 | Global DeFi (agent402) | https://agent402.tools/api/global-defi | DeFi only |
-| **$0.02** | **Crypto Pulse (us)** | **https://137-184-201-7.sslip.io/v1/pulse** | Spots+F&G+funding+DeFi+summary |
+| **$0.02** | **Crypto Pulse (us)** | **https://cryptopulseapi.com/v1/pulse** | Spots+F&G+funding+DeFi+summary |
 | $0.01 | CoinMarketCap x402 | https://pro-api.coinmarketcap.com (Base) | Quotes; Base not Solana |
 | $0.02 | Kronos liquidations | kronossignals.com | Niche liq map |
 
@@ -104,7 +104,7 @@ mcp-publisher publish        # publishes mcp/server.json
 curl -sS "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.midnight232/crypto-pulse"
 ```
 
-`server.json` already names `io.github.midnight232/crypto-pulse`, version `0.3.2`, remote `https://137-184-201-7.sslip.io/mcp`, repo `https://github.com/midnight232/crypto-pulse-api`.
+`server.json` already names `io.github.midnight232/crypto-pulse`, version `0.3.3`, remote `https://cryptopulseapi.com/mcp`, repo `https://github.com/midnight232/crypto-pulse-api`.
 
 ### 4. Smithery — prepared, NOT submitted
 
@@ -118,7 +118,7 @@ curl -sS "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github
 **Exact steps (after Matt's yes):**
 
 1. Sign in at https://smithery.ai/ with GitHub **midnight232**.
-2. Add a remote server: Streamable HTTP URL `https://137-184-201-7.sslip.io/mcp`.
+2. Add a remote server: Streamable HTTP URL `https://cryptopulseapi.com/mcp`.
 3. Or connect the GitHub repo `midnight232/crypto-pulse-api` and use `mcp/smithery.yaml`.
 4. Optional CLI path: `npx -y @smithery/cli@latest auth login` then publish under Matt's namespace (confirm current CLI flags on Smithery docs before running).
 
@@ -134,8 +134,8 @@ curl -sS "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github
 
 - Name: Crypto Pulse
 - Repository: https://github.com/midnight232/crypto-pulse-api
-- Remote MCP: https://137-184-201-7.sslip.io/mcp
-- Homepage: https://137-184-201-7.sslip.io/
+- Remote MCP: https://cryptopulseapi.com/mcp
+- Homepage: https://cryptopulseapi.com/
 - Description: One call replaces four crypto data fetches for AI agents (spots, Fear & Greed, Hyperliquid funding, DefiLlama TVL/yields) with a plain-English summary. Free sample tool; paid pulse/spots via x402 USDC on Solana.
 
 ### 6. mcp.so — prepared, NOT submitted
@@ -148,16 +148,16 @@ curl -sS "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github
 **Paid form draft (Remote Server tab):**
 
 - Name: Crypto Pulse
-- Remote endpoint: `https://137-184-201-7.sslip.io/mcp`
+- Remote endpoint: `https://cryptopulseapi.com/mcp`
 - Repository: `https://github.com/midnight232/crypto-pulse-api`
 
 **Free issue draft (comment on chatmcp/mcpso#1 or new “Submit Remote MCP Server” issue):**
 
 ```
 Name: Crypto Pulse
-Remote MCP: https://137-184-201-7.sslip.io/mcp
+Remote MCP: https://cryptopulseapi.com/mcp
 GitHub: https://github.com/midnight232/crypto-pulse-api
-Homepage: https://137-184-201-7.sslip.io/
+Homepage: https://cryptopulseapi.com/
 Description: One call replaces four crypto data sources (spots, Fear & Greed, funding, DeFi) with summary; free sample + Streamable HTTP MCP; x402 USDC on Solana.
 Tools: get_market_sample (free), get_market_pulse ($0.02 via x402 HTTP), get_market_spots ($0.005 via x402 HTTP)
 ```
@@ -175,10 +175,10 @@ Tools: get_market_sample (free), get_market_pulse ($0.02 via x402 HTTP), get_mar
 **Issue body:**
 
 ```
-Endpoint: https://137-184-201-7.sslip.io/v1/pulse
-Also: https://137-184-201-7.sslip.io/v1/spots ($0.005 spots-only)
-Free sample: https://137-184-201-7.sslip.io/v1/sample
-MCP: https://137-184-201-7.sslip.io/mcp
+Endpoint: https://cryptopulseapi.com/v1/pulse
+Also: https://cryptopulseapi.com/v1/spots ($0.005 spots-only)
+Free sample: https://cryptopulseapi.com/v1/sample
+MCP: https://cryptopulseapi.com/mcp
 GitHub: https://github.com/midnight232/crypto-pulse-api
 Payment address (payTo): 37CP6YemJJQ6sMu4Ue6C7pgC7BXkN6iCcCHVeZunvPod
 Network: solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
@@ -186,8 +186,8 @@ Asset: USDC EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 Price: $0.02 full pulse / $0.005 spots
 Facilitator: https://api.cdp.coinbase.com/platform/v2/x402 (PayAI listing also present)
 Description: One call replaces four crypto data fetches for AI agents: spots, Fear & Greed, Hyperliquid funding, DefiLlama TVL/yields, plus a plain-English summary. Free sample + MCP. Keyless upstreams, x402 USDC on Solana.
-llms.txt: https://137-184-201-7.sslip.io/llms.txt
-OpenAPI: https://137-184-201-7.sslip.io/openapi.json
+llms.txt: https://cryptopulseapi.com/llms.txt
+OpenAPI: https://cryptopulseapi.com/openapi.json
 ```
 
 ### 8. awesome-x402 curated lists — prepared PRs, NOT submitted
@@ -200,7 +200,7 @@ OpenAPI: https://137-184-201-7.sslip.io/openapi.json
 **Suggested bullet (xpaysh / similar):**
 
 ```
-- [Crypto Pulse](https://137-184-201-7.sslip.io/) — One call replaces four crypto data fetches for AI agents (spots, Fear & Greed, Hyperliquid funding, DefiLlama TVL/yields) + summary. Free sample + MCP. x402 USDC on Solana ($0.02 pulse / $0.005 spots). [GitHub](https://github.com/midnight232/crypto-pulse-api)
+- [Crypto Pulse](https://cryptopulseapi.com/) — One call replaces four crypto data fetches for AI agents (spots, Fear & Greed, Hyperliquid funding, DefiLlama TVL/yields) + summary. Free sample + MCP. x402 USDC on Solana ($0.02 pulse / $0.005 spots). [GitHub](https://github.com/midnight232/crypto-pulse-api)
 ```
 
 ---

@@ -5,7 +5,7 @@ MCP wrapper around the Crypto Pulse x402 HTTP API.
 ## Remote (already live)
 
 ```
-https://137-184-201-7.sslip.io/mcp
+https://cryptopulseapi.com/mcp
 ```
 
 Transport: **Streamable HTTP** (stateless, JSON responses).
@@ -25,7 +25,7 @@ Paid tools intentionally return payment requirements rather than settling inside
 From the repo root (after `npm ci`):
 
 ```bash
-PUBLIC_BASE_URL=https://137-184-201-7.sslip.io node mcp/stdio.js
+PUBLIC_BASE_URL=https://cryptopulseapi.com node mcp/stdio.js
 ```
 
 Cursor / Claude Desktop snippet:
@@ -37,7 +37,7 @@ Cursor / Claude Desktop snippet:
       "command": "node",
       "args": ["/absolute/path/to/crypto-pulse-api/mcp/stdio.js"],
       "env": {
-        "PUBLIC_BASE_URL": "https://137-184-201-7.sslip.io"
+        "PUBLIC_BASE_URL": "https://cryptopulseapi.com"
       }
     }
   }

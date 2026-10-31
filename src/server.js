@@ -47,7 +47,7 @@ import { mountMcp } from "./mcp-server.js";
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.3.2";
+const VERSION = "0.3.3";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -324,7 +324,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/", (_req, res) => {
+app.get("/", (req, res) => {
+  const reqBase = publicBaseUrl(req);
   res.json({
     name: "Crypto Pulse",
     service: "crypto-pulse-api",
@@ -335,7 +336,7 @@ app.get("/", (_req, res) => {
     shortDescription: shortDescription(),
     whyUseThis:
       "One call replaces four: spots + Fear & Greed + Hyperliquid funding + DefiLlama TVL/yields, with a ready-made summary line. Cheaper than chaining four single-purpose x402 endpoints when you need the full brief. Free sample at /v1/sample; MCP at /mcp.",
-    baseUrl: base,
+    baseUrl: reqBase,
     pricing: {
       fullPulse: {
         endpoint: "GET /v1/pulse",
@@ -363,17 +364,17 @@ app.get("/", (_req, res) => {
     ],
     paid: ["GET /v1/pulse", "GET /v1/pulse/:asset", "GET /v1/spots"],
     mcp: {
-      url: `${base}/mcp`,
+      url: `${reqBase}/mcp`,
       transport: "streamable-http",
       tools: ["get_market_sample", "get_market_pulse", "get_market_spots"],
     },
     tags: SERVICE_TAGS,
     discovery: {
-      llmsTxt: `${base}/llms.txt`,
-      wellKnownX402: `${base}/.well-known/x402`,
-      openapi: `${base}/openapi.json`,
-      sample: `${base}/v1/sample`,
-      mcp: `${base}/mcp`,
+      llmsTxt: `${reqBase}/llms.txt`,
+      wellKnownX402: `${reqBase}/.well-known/x402`,
+      openapi: `${reqBase}/openapi.json`,
+      sample: `${reqBase}/v1/sample`,
+      mcp: `${reqBase}/mcp`,
       payaiBazaar: `${PAYAI_FACILITATOR_URL}/discovery/resources?payTo=${payTo}`,
       payaiSearch: `${PAYAI_FACILITATOR_URL}/discovery/search?query=crypto+pulse`,
       cdpBazaar: `${CDP_FACILITATOR_URL}/discovery/resources?payTo=${payTo}`,
@@ -382,7 +383,7 @@ app.get("/", (_req, res) => {
     },
     docs: {
       human: "See README.md and DEPLOY.md",
-      agents: `${base}/llms.txt`,
+      agents: `${reqBase}/llms.txt`,
     },
   });
 });
@@ -404,16 +405,16 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.get("/llms.txt", (_req, res) => {
-  res.type("text/plain; charset=utf-8").send(buildLlmsTxt());
+app.get("/llms.txt", (req, res) => {
+  res.type("text/plain; charset=utf-8").send(buildLlmsTxt(req));
 });
 
-app.get("/.well-known/x402", (_req, res) => {
-  res.json(buildWellKnownX402());
+app.get("/.well-known/x402", (req, res) => {
+  res.json(buildWellKnownX402(req));
 });
 
-app.get("/openapi.json", (_req, res) => {
-  res.json(buildOpenApi());
+app.get("/openapi.json", (req, res) => {
+  res.json(buildOpenApi(req));
 });
 
 // Free sample — tighter per-IP limit so it cannot replace the paid live feed.

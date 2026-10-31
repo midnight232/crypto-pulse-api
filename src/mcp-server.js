@@ -22,10 +22,10 @@ import {
 } from "./config.js";
 import { SPOTS_PRICE, publicBaseUrl, serviceDescription, shortDescription } from "./discovery.js";
 
-const VERSION = "0.3.0";
+const VERSION = "0.3.3";
 
-function paymentHint(kind) {
-  const base = publicBaseUrl();
+function paymentHint(kind, req) {
+  const base = publicBaseUrl(req);
   const payTo = resolvePayTo();
   if (kind === "spots") {
     return {
@@ -82,7 +82,7 @@ function paymentHint(kind) {
   };
 }
 
-export function createPulseMcpServer() {
+export function createPulseMcpServer(req) {
   const server = new McpServer({
     name: "crypto-pulse",
     version: VERSION,
@@ -130,9 +130,9 @@ export function createPulseMcpServer() {
       },
     },
     async ({ asset } = {}) => {
-      const hint = paymentHint("pulse");
+      const hint = paymentHint("pulse", req);
       if (asset) {
-        hint.http.url = `${publicBaseUrl()}/v1/pulse/${asset}`;
+        hint.http.url = `${publicBaseUrl(req)}/v1/pulse/${asset}`;
         hint.requestedAsset = asset;
       }
       hint.description = serviceDescription();
@@ -161,7 +161,7 @@ export function createPulseMcpServer() {
       },
     },
     async () => {
-      const hint = paymentHint("spots");
+      const hint = paymentHint("spots", req);
       return {
         content: [
           {
@@ -182,7 +182,7 @@ export function createPulseMcpServer() {
  */
 export function mountMcp(app) {
   const handle = async (req, res) => {
-    const server = createPulseMcpServer();
+    const server = createPulseMcpServer(req);
     try {
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,

@@ -46,10 +46,20 @@ docker run -d --name crypto-pulse --restart unless-stopped \
   crypto-pulse-api
 ```
 
-Caddyfile (`/etc/caddy/Caddyfile`):
+Caddyfile (`/etc/caddy/Caddyfile`) — live hosts as of Oct 31, 2026:
 
 ```
-pulse.example.com {
+cryptopulseapi.com {
+  encode gzip
+  reverse_proxy 127.0.0.1:4021
+}
+
+www.cryptopulseapi.com {
+  redir https://cryptopulseapi.com{uri} permanent
+}
+
+137-184-201-7.sslip.io {
+  encode gzip
   reverse_proxy 127.0.0.1:4021
 }
 ```
@@ -133,8 +143,9 @@ Do **not** run `npm run buy` against mainnet unless you intend to spend real USD
 
 | Field | Value |
 |-------|--------|
-| Public base URL | `https://137-184-201-7.sslip.io` |
-| Paid endpoint | `https://137-184-201-7.sslip.io/v1/pulse` |
+| Public base URL | `https://cryptopulseapi.com` |
+| Legacy alias | `https://137-184-201-7.sslip.io` (kept for existing clients) |
+| Paid endpoint | `https://cryptopulseapi.com/v1/pulse` |
 | Droplet name | `crypto-pulse-api` |
 | Region | `nyc1` |
 | Size | `s-1vcpu-512mb-10gb` ($4/mo) |
@@ -165,10 +176,12 @@ ssh -i "$KEY" root@$IP 'chown -R pulse:pulse /opt/crypto-pulse-api && cd /opt/cr
 ### Smoke (no paid settle)
 
 ```bash
-curl -sS https://137-184-201-7.sslip.io/health
-curl -sS -o /dev/null -w "%{http_code}\n" https://137-184-201-7.sslip.io/v1/pulse   # expect 402
-curl -sS https://137-184-201-7.sslip.io/v1/sample | head -c 200   # free sample + summary
-PUBLIC_BASE_URL=https://137-184-201-7.sslip.io npm run test:mcp   # MCP initialize/list/sample
+curl -sS https://cryptopulseapi.com/health
+curl -sS -o /dev/null -w "%{http_code}\n" https://cryptopulseapi.com/v1/pulse   # expect 402
+curl -sS https://cryptopulseapi.com/v1/sample | head -c 200   # free sample + summary
+PUBLIC_BASE_URL=https://cryptopulseapi.com npm run test:mcp   # MCP initialize/list/sample
+# Legacy alias should still work:
+curl -sS -o /dev/null -w "%{http_code}\n" https://137-184-201-7.sslip.io/health
 ```
 
 ### Agent discovery (free)

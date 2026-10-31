@@ -4,7 +4,7 @@ Pay-per-request **crypto market pulse** for AI agents. **One call replaces four*
 
 > Set `NETWORK=devnet` (default locally) for free testing, or `NETWORK=mainnet` for production.
 >
-> Live: https://137-184-201-7.sslip.io — source: https://github.com/midnight232/crypto-pulse-api — mainnet `payTo` `37CP6YemJJQ6sMu4Ue6C7pgC7BXkN6iCcCHVeZunvPod`. Facilitator: **Coinbase CDP** (PayAI listing retained). See **DEPLOY.md**.
+> Live: https://cryptopulseapi.com (legacy alias still up: https://137-184-201-7.sslip.io) — source: https://github.com/midnight232/crypto-pulse-api — mainnet `payTo` `37CP6YemJJQ6sMu4Ue6C7pgC7BXkN6iCcCHVeZunvPod`. Facilitator: **Coinbase CDP** (PayAI listing retained). See **DEPLOY.md**.
 
 ## What it returns
 
@@ -64,15 +64,15 @@ Never commit `.devnet-keys/`, `.mainnet-keys/`, `.cdp-keys/`, `.do-token`, or `.
 
 ## MCP
 
-Remote (live): `https://137-184-201-7.sslip.io/mcp`
+Remote (live): `https://cryptopulseapi.com/mcp`
 
 Local stdio:
 
 ```bash
-PUBLIC_BASE_URL=https://137-184-201-7.sslip.io npm run mcp:stdio
+PUBLIC_BASE_URL=https://cryptopulseapi.com npm run mcp:stdio
 ```
 
-Registry drafts (not published): `mcp/server.json`, `mcp/smithery.yaml`. See [MARKETING.md](./MARKETING.md).
+Official MCP Registry: `io.github.midnight232/crypto-pulse` (`mcp/server.json`). Smithery draft not published. See [MARKETING.md](./MARKETING.md).
 
 ## Project layout
 

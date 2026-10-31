@@ -2,7 +2,7 @@
  * Quick MCP client against a base URL (default: live).
  * Tests initialize + tools/list + get_market_sample. No paid settles.
  */
-const BASE = (process.env.PUBLIC_BASE_URL || "https://137-184-201-7.sslip.io").replace(
+const BASE = (process.env.PUBLIC_BASE_URL || "https://cryptopulseapi.com").replace(
   /\/$/,
   "",
 );

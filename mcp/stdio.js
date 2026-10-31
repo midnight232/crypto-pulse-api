@@ -5,17 +5,17 @@
  * Paid tools return x402 payment requirements + HTTP URLs (no private keys here).
  *
  * Usage:
- *   PUBLIC_BASE_URL=https://137-184-201-7.sslip.io node mcp/stdio.js
+ *   PUBLIC_BASE_URL=https://cryptopulseapi.com node mcp/stdio.js
  *
  * Claude Desktop / Cursor example config:
  *   { "command": "node", "args": ["/path/to/crypto-pulse-api/mcp/stdio.js"],
- *     "env": { "PUBLIC_BASE_URL": "https://137-184-201-7.sslip.io" } }
+ *     "env": { "PUBLIC_BASE_URL": "https://cryptopulseapi.com" } }
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const BASE = (process.env.PUBLIC_BASE_URL || "https://137-184-201-7.sslip.io").replace(
+const BASE = (process.env.PUBLIC_BASE_URL || "https://cryptopulseapi.com").replace(
   /\/$/,
   "",
 );
