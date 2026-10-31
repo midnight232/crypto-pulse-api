@@ -24,7 +24,8 @@ Also:
 - `GET /v1/pulse/:asset` — single ticker (`BTC|ETH|SOL|HYPE`), `$0.02`
 - `GET /v1/spots` — spots only + summary, `$0.005`
 - `GET /v1/sample` — **free** same shape as full pulse, may be up to 15 minutes old (10 req/min/IP)
-- `POST /mcp` — Streamable HTTP MCP (`get_market_sample` free; paid tools return x402 payment requirements + HTTP URLs)
+- `POST /mcp` — Streamable HTTP MCP (`get_market_sample` free; paid tools return x402 payment requirements + HTTP URLs; free arena tools)
+- **Prediction Arena (free):** `GET /arena`, `GET /v1/arena/rules`, `GET /v1/arena/round`, `POST /v1/arena/predict`, `GET /v1/arena/leaderboard` — daily UTC BTC/ETH/SOL close predictions. Free entry, no wagering. Sponsor-funded prizes paid **manually** after review (server never holds payout keys).
 
 Free discovery: `GET /`, `GET /health`, `GET /llms.txt`, `GET /.well-known/x402`, `GET /openapi.json`.
 
@@ -74,6 +75,10 @@ PUBLIC_BASE_URL=https://cryptopulseapi.com npm run mcp:stdio
 
 Official MCP Registry: `io.github.midnight232/crypto-pulse` (`mcp/server.json`). Smithery draft not published. See [MARKETING.md](./MARKETING.md).
 
+## Prediction Arena
+
+Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. Prize pool defaults to “to be announced by the sponsor”; payouts are manual after Matt approves — nothing is spent automatically. Example: `npm run arena:submit -- --asset BTC --price 100000`.
+
 ## Project layout
 
 ```
@@ -82,6 +87,7 @@ src/pulse.js           Public data aggregation + caches
 src/summary.js         Plain-English summary + signals
 src/discovery.js       llms.txt / well-known / OpenAPI
 src/mcp-server.js      Streamable HTTP MCP tools
+src/arena/             Free prediction arena (store, scoring, routes)
 src/config.js          NETWORK / facilitator / payTo
 mcp/stdio.js           Local stdio MCP proxy
 mcp/server.json        Official MCP Registry draft

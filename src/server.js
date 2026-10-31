@@ -44,10 +44,11 @@ import {
   buildOpenApi,
 } from "./discovery.js";
 import { mountMcp } from "./mcp-server.js";
+import { mountArena } from "./arena/routes.js";
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.3.3";
+const VERSION = "0.4.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -358,6 +359,11 @@ app.get("/", (req, res) => {
       "GET /health",
       "GET /v1/sample",
       "POST /mcp",
+      "GET /arena",
+      "GET /v1/arena/rules",
+      "GET /v1/arena/round",
+      "POST /v1/arena/predict",
+      "GET /v1/arena/leaderboard",
       "GET /llms.txt",
       "GET /.well-known/x402",
       "GET /openapi.json",
@@ -366,7 +372,15 @@ app.get("/", (req, res) => {
     mcp: {
       url: `${reqBase}/mcp`,
       transport: "streamable-http",
-      tools: ["get_market_sample", "get_market_pulse", "get_market_spots"],
+      tools: [
+        "get_market_sample",
+        "get_market_pulse",
+        "get_market_spots",
+        "arena_rules",
+        "arena_current_round",
+        "arena_submit_prediction",
+        "arena_leaderboard",
+      ],
     },
     tags: SERVICE_TAGS,
     discovery: {
@@ -380,6 +394,14 @@ app.get("/", (req, res) => {
       cdpBazaar: `${CDP_FACILITATOR_URL}/discovery/resources?payTo=${payTo}`,
       cdpSearch: `${CDP_FACILITATOR_URL}/discovery/search?query=crypto+pulse`,
       activeFacilitator: FACILITATOR_NAME,
+    },
+    arena: {
+      page: `${reqBase}/arena`,
+      rules: `${reqBase}/v1/arena/rules`,
+      round: `${reqBase}/v1/arena/round`,
+      predict: `${reqBase}/v1/arena/predict`,
+      leaderboard: `${reqBase}/v1/arena/leaderboard`,
+      note: "Free skill contest for bots. No paid entry. Sponsor prizes paid manually after review.",
     },
     docs: {
       human: "See README.md and DEPLOY.md",
@@ -441,6 +463,9 @@ app.get("/v1/sample", sampleLimiter, async (_req, res) => {
 
 // MCP Streamable HTTP (free initialize / tools/list / get_market_sample)
 mountMcp(app);
+
+// Free Crypto Pulse Prediction Arena (no paid entry; manual sponsor prizes)
+mountArena(app);
 
 app.use(
   paymentMiddleware(

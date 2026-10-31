@@ -205,3 +205,11 @@ As of Oct 30, 2026 the live droplet settles through **Coinbase CDP** so resource
 - systemd `EnvironmentFile=/etc/crypto-pulse.env` (mode `600`, owner `root:root`) holds `CDP_API_KEY_ID` / `CDP_API_KEY_SECRET` plus `FACILITATOR=cdp`. Never commit these keys; `.cdp-keys/` is gitignored.
 - Redeploy code as above, then `systemctl restart crypto-pulse`.
 - First CDP settle indexes the resource in `GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/search?query=...` (auth optional for some list endpoints; search works with CDP JWT).
+
+
+## Prediction Arena (v0.4+)
+
+- Free endpoints under `/arena` and `/v1/arena/*`. Data file: `/opt/crypto-pulse-api/data/arena.json` (created at runtime; owned by `pulse`).
+- Set `ARENA_ADMIN_TOKEN` in `/etc/crypto-pulse.env` (never commit). Protects `GET /v1/arena/admin/export` and `DELETE /v1/arena/admin/prediction`.
+- Optional `ARENA_PRIZE_POOL` text (empty → “Prize pool: to be announced by the sponsor”).
+- Scorer runs in-process every 60s after settlement midnight; it only writes rankings — **no automatic payouts**.

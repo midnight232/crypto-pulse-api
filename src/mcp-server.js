@@ -21,8 +21,15 @@ import {
   resolvePayTo,
 } from "./config.js";
 import { SPOTS_PRICE, publicBaseUrl, serviceDescription, shortDescription } from "./discovery.js";
+import {
+  getCurrentRound,
+  getLeaderboard,
+  getRules,
+  submitPrediction,
+  signingHelp,
+} from "./arena/index.js";
 
-const VERSION = "0.3.3";
+const VERSION = "0.4.0";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -170,6 +177,100 @@ export function createPulseMcpServer(req) {
           },
         ],
         structuredContent: hint,
+      };
+    },
+  );
+
+
+  server.registerTool(
+    "arena_rules",
+    {
+      description:
+        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid manually after review. Server never handles bot private keys.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      const rules = { ...getRules(), signing: signingHelp(), page: `${publicBaseUrl(req)}/arena` };
+      return {
+        content: [{ type: "text", text: JSON.stringify(rules, null, 2) }],
+        structuredContent: rules,
+      };
+    },
+  );
+
+  server.registerTool(
+    "arena_current_round",
+    {
+      description:
+        "FREE: current Crypto Pulse Prediction Arena round timing (open/cutoff/close UTC), whether entries are accepted, entry counts, and top of leaderboard. No payment.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      const round = getCurrentRound();
+      const out = { ...round, signing: signingHelp({ roundId: round.roundId }), page: `${publicBaseUrl(req)}/arena` };
+      return {
+        content: [{ type: "text", text: JSON.stringify(out, null, 2) }],
+        structuredContent: out,
+      };
+    },
+  );
+
+  server.registerTool(
+    "arena_submit_prediction",
+    {
+      description:
+        "FREE: submit or update a signed BTC/ETH/SOL price prediction for the current (or given) arena round. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58).",
+      inputSchema: {
+        roundId: z.string().describe("Round id YYYY-MM-DD (settlement midnight UTC)"),
+        wallet: z.string().describe("Base58 Solana public key"),
+        asset: z.enum(["BTC", "ETH", "SOL"]),
+        price: z.number().positive().describe("Predicted USD spot at round close"),
+        signature: z.string().describe("Base58 ed25519 signature over the canonical message"),
+        botName: z.string().max(32).optional().describe("Optional display name"),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => {
+      try {
+        const result = submitPrediction(args);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          structuredContent: result,
+        };
+      } catch (err) {
+        const fail = {
+          ok: false,
+          error: err.code || "predict_failed",
+          message: err.message,
+          lifecycle: err.lifecycle,
+          cutoffAt: err.cutoffAt,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(fail, null, 2) }],
+          structuredContent: fail,
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "arena_leaderboard",
+    {
+      description:
+        "FREE: arena leaderboard for a round (default: current entry round). Ranked by average absolute % error across BTC/ETH/SOL after scoring; before close, complete entries are listed by earliest submission.",
+      inputSchema: {
+        round: z.string().optional().describe("Optional round id YYYY-MM-DD"),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ round } = {}) => {
+      const board = getLeaderboard(round || undefined);
+      return {
+        content: [{ type: "text", text: JSON.stringify(board, null, 2) }],
+        structuredContent: board,
       };
     },
   );

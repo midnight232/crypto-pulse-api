@@ -164,6 +164,8 @@ export function buildLlmsTxt(req) {
 - [Health](${base}/health): liveness + network + payTo
 - [Sample](${base}/v1/sample): stale full-pulse shape + summary (≤15 min old; 10 req/min/IP)
 - [MCP](${base}/mcp): Streamable HTTP MCP (POST JSON-RPC)
+- [Arena](${base}/arena): FREE Crypto Pulse Prediction Arena (BTC/ETH/SOL skill contest; no paid entry)
+- [Arena rules](${base}/v1/arena/rules): machine-readable arena rules + signing format
 - [OpenAPI](${base}/openapi.json): machine-readable API spec
 - [x402 well-known](${base}/.well-known/x402): static paid-resource index
 - [This file](${base}/llms.txt)
@@ -257,6 +259,11 @@ export function buildWellKnownX402(req) {
       { url: `${base}/health`, method: "GET" },
       { url: `${base}/v1/sample`, method: "GET", note: "Stale full-pulse sample ≤15 min" },
       { url: `${base}/mcp`, method: "POST", note: "Streamable HTTP MCP" },
+      { url: `${base}/arena`, method: "GET", note: "Free prediction arena page" },
+      { url: `${base}/v1/arena/rules`, method: "GET" },
+      { url: `${base}/v1/arena/round`, method: "GET" },
+      { url: `${base}/v1/arena/predict`, method: "POST", note: "Signed free prediction" },
+      { url: `${base}/v1/arena/leaderboard`, method: "GET" },
       { url: `${base}/openapi.json`, method: "GET" },
       { url: `${base}/llms.txt`, method: "GET" },
       { url: `${base}/.well-known/x402`, method: "GET" },
@@ -271,7 +278,7 @@ export function buildOpenApi(req) {
     openapi: "3.1.0",
     info: {
       title: "Crypto Pulse API",
-      version: "0.3.3",
+      version: "0.4.0",
       description: serviceDescription(),
       contact: { url: base },
     },

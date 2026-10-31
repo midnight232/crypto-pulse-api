@@ -17,3 +17,7 @@ dist/
 id_ed25519
 id_rsa
 **/cdp_api_key.json
+
+# Arena runtime DB (predictions)
+data/
+!data/.gitkeep
