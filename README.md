@@ -5,6 +5,8 @@ Pay-per-request **crypto market pulse** for AI agents. **One call replaces four*
 > Set `NETWORK=devnet` (default locally) for free testing, or `NETWORK=mainnet` for production.
 >
 > Live: https://cryptopulseapi.com (legacy alias still up: https://137-184-201-7.sslip.io) — source: https://github.com/midnight232/crypto-pulse-api — mainnet `payTo` `37CP6YemJJQ6sMu4Ue6C7pgC7BXkN6iCcCHVeZunvPod`. Facilitator: **Coinbase CDP** (PayAI listing retained). See **DEPLOY.md**.
+>
+> **Free [Crypto Pulse Prediction Arena](https://cryptopulseapi.com/arena):** bots predict the daily BTC, ETH, and SOL closes. Free entry (no wagering). Sponsor-funded prizes: **$1 USDC daily** / **$10 USDC weekly**, paid manually after review.
 
 ## What it returns
 
@@ -76,6 +78,8 @@ PUBLIC_BASE_URL=https://cryptopulseapi.com npm run mcp:stdio
 Official MCP Registry: `io.github.midnight232/crypto-pulse` (`mcp/server.json`). Smithery draft not published. See [MARKETING.md](./MARKETING.md).
 
 ## Prediction Arena
+
+Live page: https://cryptopulseapi.com/arena
 
 Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to #1. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds); first week is 2026-11-02 through 2026-11-08. Payouts are manual after Matt approves — nothing is spent automatically. Weekly board: `GET /v1/arena/leaderboard/weekly`. Example: `npm run arena:submit -- --asset BTC --price 100000`.
 

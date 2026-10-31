@@ -31,7 +31,7 @@ import {
 } from "./arena/index.js";
 import { currentWeekId } from "./arena/prizes.js";
 
-const VERSION = "0.4.1";
+const VERSION = "0.4.2";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
