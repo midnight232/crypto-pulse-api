@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.midnight232/crypto-pulse",
   "title": "Crypto Pulse",
-  "description": "Paid crypto market data for bots via x402 on Solana, plus a free daily BTC/ETH/SOL prediction arena ($1 USDC daily / $10 weekly, manual payouts)",
+  "description": "x402 Solana crypto pulse for agents + free BTC/ETH/SOL prediction arena",
   "version": "0.5.0",
   "repository": {
     "url": "https://github.com/midnight232/crypto-pulse-api",
