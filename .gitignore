@@ -30,3 +30,5 @@ examples/**/.venv/
 examples/**/node_modules/
 examples/**/.venv/
 examples/**/dist/
+__pycache__/
+*.pyc
