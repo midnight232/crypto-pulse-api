@@ -27,6 +27,17 @@ import { processAutopay, listPublicPayoutHistory, autopayEnabled } from "./autop
 import { getPrizeWalletPublicStatus, resolvePrizeWalletAddress } from "./wallet.js";
 import { verifyPredictionSignature, buildCanonicalMessage, normalizePrice, normalizeAsset, sanitizeBotName } from "./verify.js";
 import { buildLeaderboard, scoreRound } from "./scoring.js";
+import {
+  HOUSE_BOT_DEFS,
+  isHouseEntrant,
+  isReservedHouseName,
+  isHouseWallet,
+  listHouseWalletsPublic,
+  startHouseBotScheduler,
+  runHouseBotEntries,
+  ensureHouseWalletsFile,
+  houseBotsEnabled,
+} from "./house.js";
 
 let storeSingleton = null;
 let scorerTimer = null;
@@ -49,6 +60,11 @@ export function getArenaPublicConfig() {
     prizes: prizeSummary(),
     rulesUrl: "/v1/arena/rules",
     pageUrl: "/arena",
+    resultsUrl: "/arena/results",
+    historyUrl: "/v1/arena/history",
+    houseBots: listHouseWalletsPublic(),
+    houseBotsNote:
+      "Bots named official-* are operator house bots. They appear on the board for transparency but are ineligible for prizes and autopay (house:true, eligible:false).",
   };
 }
 
@@ -90,6 +106,8 @@ export function describeRound(meta, store) {
     leaderboardTop: rows.slice(0, 10),
     incompleteCount: incomplete.length,
     acceptingEntries: lifecycle === "open",
+    prizeWinner: rows.find((r) => r.prizeEligible && r.prizeRank === 1) || null,
+    houseBotsActive: houseBotsEnabled(),
   };
 }
 
@@ -114,7 +132,7 @@ export function getLeaderboard(roundId) {
   const meta = parseRoundId(roundId || currentEntryRound().roundId);
   store.ensureRound(meta);
   const round = store.getRound(meta.roundId);
-  const { rows, incomplete } = buildLeaderboard(round);
+  const { rows, incomplete, prizeWinner } = buildLeaderboard(round);
   return {
     roundId: meta.roundId,
     status: round.status,
@@ -124,7 +142,15 @@ export function getLeaderboard(roundId) {
     prizeShort: prizePoolShort(),
     dailyPrizeUsdc: DAILY_PRIZE_USDC,
     ranking: rows,
-    incomplete,
+    incomplete: incomplete.map((r) => ({
+      ...r,
+      house: isHouseEntrant({ wallet: r.wallet, botName: r.botName }),
+      prizeEligible: !isHouseEntrant({ wallet: r.wallet, botName: r.botName }),
+      eligible: !isHouseEntrant({ wallet: r.wallet, botName: r.botName }),
+    })),
+    prizeWinner: prizeWinner || null,
+    houseBotsNote:
+      "Rows with house:true / eligible:false are official operator bots and cannot win prizes.",
   };
 }
 
@@ -200,6 +226,15 @@ export function submitPrediction(body) {
     });
   }
 
+  // Reserve official-* names for configured house wallets only.
+  if (isReservedHouseName(verified.botName) && !isHouseWallet(verified.wallet)) {
+    throw Object.assign(
+      new Error("botName prefix official- is reserved for Crypto Pulse house bots"),
+      { code: "reserved_bot_name", status: 403 },
+    );
+  }
+
+  const house = isHouseEntrant({ wallet: verified.wallet, botName: verified.botName });
   const { created, prediction } = store.upsertPrediction(roundId, {
     wallet: verified.wallet,
     botName: verified.botName,
@@ -208,6 +243,7 @@ export function submitPrediction(body) {
     priceCanonical: verified.priceCanonical,
     message: verified.message,
     signature: verified.signature,
+    house,
   });
 
   return {
@@ -222,6 +258,9 @@ export function submitPrediction(body) {
       botName: prediction.botName,
       asset: prediction.asset,
       price: prediction.price,
+      house: Boolean(prediction.house || house),
+      prizeEligible: !(prediction.house || house),
+      eligible: !(prediction.house || house),
       submittedAt: prediction.submittedAt,
       updatedAt: prediction.updatedAt,
     },
@@ -238,7 +277,7 @@ export function exportWinners({ roundId, weekId } = {}) {
   const roundIds = store.listRoundIds().sort();
   for (const id of roundIds) {
     const board = getLeaderboard(id);
-    const winner = board.ranking[0] || null;
+    const winner = board.prizeWinner || board.ranking.find((r) => r.prizeEligible) || null;
     const payout = store.getPayout("daily", id);
     daily.push({
       type: "daily",
@@ -407,6 +446,10 @@ export function startArenaScorer({ intervalMs = 60_000 } = {}) {
   scorerTimer = setInterval(tick, intervalMs);
   if (typeof scorerTimer.unref === "function") scorerTimer.unref();
   console.log(JSON.stringify({ event: "arena_scorer_started", intervalMs }));
+  startHouseBotScheduler({
+    submitPrediction,
+    getStore,
+  });
 }
 
 export function stopArenaScorer() {
@@ -414,6 +457,146 @@ export function stopArenaScorer() {
     clearInterval(scorerTimer);
     scorerTimer = null;
   }
+}
+
+
+/**
+ * Full public results for a round: closes, every prediction with score, winner, payout.
+ */
+export function getRoundResults(roundId) {
+  const store = getStore();
+  const meta = parseRoundId(roundId || currentEntryRound().roundId);
+  store.ensureRound(meta);
+  const round = store.getRound(meta.roundId);
+  const board = getLeaderboard(meta.roundId);
+  const payout = store.getPayout("daily", meta.roundId);
+  const predictions = (round.predictions || []).map((p) => {
+    const house = Boolean(p.house) || isHouseEntrant({ wallet: p.wallet, botName: p.botName });
+    return {
+      wallet: p.wallet,
+      botName: p.botName,
+      asset: p.asset,
+      price: p.price,
+      absPctError: p.absPctError,
+      submittedAt: p.submittedAt,
+      updatedAt: p.updatedAt,
+      house,
+      prizeEligible: !house,
+      eligible: !house,
+    };
+  });
+  const winner = board.prizeWinner || null;
+  return {
+    roundId: meta.roundId,
+    openAt: meta.openAt,
+    cutoffAt: meta.cutoffAt,
+    closeAt: meta.closeAt,
+    status: round.status,
+    closes: round.closes,
+    scoredAt: round.scoredAt,
+    source: round.closes?.source || null,
+    predictions,
+    ranking: board.ranking,
+    incomplete: board.incomplete,
+    prizeWinner: winner,
+    displayLeader: board.ranking[0] || null,
+    payout: {
+      amountUsdc: payout.amountUsdc ?? DAILY_PRIZE_USDC,
+      wallet: payout.wallet || winner?.wallet || null,
+      botName: payout.botName || winner?.botName || null,
+      paid: Boolean(payout.paid || payout.status === "paid"),
+      payoutStatus: payout.status || (payout.paid ? "paid" : "unpaid"),
+      paidAt: payout.paidAt || null,
+      txSignature: payout.txSignature || null,
+      explorer: payout.explorer || null,
+      note: payout.note || null,
+      error: payout.error || null,
+    },
+    houseBots: listHouseWalletsPublic(),
+    houseBotsNote:
+      "official-* house bots are shown for transparency and are never prize-eligible or autopaid.",
+  };
+}
+
+/**
+ * Rate-limited public history of rounds / predictions / results.
+ */
+export function getArenaHistory({ limit = 30, includePredictions = true } = {}) {
+  const store = getStore();
+  const ids = store.listRoundIds().sort().reverse().slice(0, Math.min(100, Math.max(1, Number(limit) || 30)));
+  const rounds = ids.map((id) => {
+    const r = getRoundResults(id);
+    if (!includePredictions) {
+      const { predictions, ...rest } = r;
+      return { ...rest, predictionCount: (predictions || []).length };
+    }
+    return r;
+  });
+  return {
+    count: rounds.length,
+    houseBots: listHouseWalletsPublic(),
+    rounds,
+  };
+}
+
+export function arenaHistoryToCsv(history) {
+  const lines = [
+    "roundId,status,scoredAt,asset,wallet,botName,house,eligible,predicted,actual,absPctError,prizeWinnerWallet,payoutStatus,txSignature,explorer",
+  ];
+  for (const round of history.rounds || []) {
+    const closes = round.closes || {};
+    const win = round.prizeWinner?.wallet || "";
+    const pay = round.payout || {};
+    const preds = round.predictions || [];
+    if (!preds.length) {
+      lines.push(
+        [
+          round.roundId,
+          round.status,
+          round.scoredAt || "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          win,
+          pay.payoutStatus || "",
+          pay.txSignature || "",
+          pay.explorer || "",
+        ].join(","),
+      );
+      continue;
+    }
+    for (const p of preds) {
+      lines.push(
+        [
+          round.roundId,
+          round.status,
+          round.scoredAt || "",
+          p.asset,
+          p.wallet,
+          JSON.stringify(p.botName || ""),
+          Boolean(p.house),
+          Boolean(p.eligible),
+          p.price ?? "",
+          closes[p.asset] ?? "",
+          p.absPctError ?? "",
+          win,
+          pay.payoutStatus || "",
+          pay.txSignature || "",
+          pay.explorer || "",
+        ].join(","),
+      );
+    }
+  }
+  return lines.join("\n") + "\n";
+}
+
+export async function triggerHouseBotEntries() {
+  return runHouseBotEntries({ submitPrediction, getStore });
 }
 
 // Re-exports useful for scripts/MCP
@@ -431,4 +614,9 @@ export {
   autopayEnabled,
   getPrizeWalletPublicStatus,
   resolvePrizeWalletAddress,
+  HOUSE_BOT_DEFS,
+  listHouseWalletsPublic,
+  isHouseEntrant,
+  houseBotsEnabled,
+  ensureHouseWalletsFile,
 };

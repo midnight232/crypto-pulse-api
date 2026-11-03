@@ -3,7 +3,7 @@
   "name": "io.github.midnight232/crypto-pulse",
   "title": "Crypto Pulse",
   "description": "x402 Solana crypto pulse for agents + free BTC/ETH/SOL prediction arena",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "repository": {
     "url": "https://github.com/midnight232/crypto-pulse-api",
     "source": "github"

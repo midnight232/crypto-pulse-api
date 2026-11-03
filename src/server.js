@@ -47,10 +47,16 @@ import {
 } from "./discovery.js";
 import { mountMcp } from "./mcp-server.js";
 import { mountArena } from "./arena/routes.js";
+import {
+  getFreePulseStore,
+  wantsFreePulse,
+  freePulseClientId,
+  describeFreePulseRule,
+} from "./free-pulse.js";
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -360,13 +366,18 @@ app.get("/", (req, res) => {
       "GET /",
       "GET /health",
       "GET /v1/sample",
+      "GET /v1/pulse (1 free live call per client per UTC day with X-Crypto-Pulse-Free + X-Pulse-Client-Id; otherwise 402)",
       "POST /mcp",
       "GET /arena",
+      "GET /arena/results",
       "GET /v1/arena/rules",
       "GET /v1/arena/round",
       "POST /v1/arena/predict",
       "GET /v1/arena/leaderboard",
       "GET /v1/arena/leaderboard/weekly",
+      "GET /v1/arena/results/:roundId",
+      "GET /v1/arena/history",
+      "GET /v1/arena/house-bots",
       "GET /v1/arena/prize-wallet",
       "GET /llms.txt",
       "GET /.well-known/x402",
@@ -374,7 +385,8 @@ app.get("/", (req, res) => {
       "GET /mcp/server-card",
       "GET /openapi.json",
     ],
-    paid: ["GET /v1/pulse", "GET /v1/pulse/:asset", "GET /v1/spots"],
+    paid: ["GET /v1/pulse (after free daily quota)", "GET /v1/pulse/:asset", "GET /v1/spots"],
+    freePulse: describeFreePulseRule(),
     mcp: {
       url: `${reqBase}/mcp`,
       transport: "streamable-http",
@@ -387,6 +399,8 @@ app.get("/", (req, res) => {
         "arena_submit_prediction",
         "arena_leaderboard",
         "arena_prize_wallet",
+        "arena_results",
+        "arena_history",
       ],
     },
     tags: SERVICE_TAGS,
@@ -406,11 +420,14 @@ app.get("/", (req, res) => {
     },
     arena: {
       page: `${reqBase}/arena`,
+      results: `${reqBase}/arena/results`,
       rules: `${reqBase}/v1/arena/rules`,
       round: `${reqBase}/v1/arena/round`,
       predict: `${reqBase}/v1/arena/predict`,
       leaderboard: `${reqBase}/v1/arena/leaderboard`,
-      note: "Free skill contest for bots. No paid entry. Sponsor prizes paid automatically on-chain from the public prize wallet while funded.",
+      history: `${reqBase}/v1/arena/history`,
+      houseBots: `${reqBase}/v1/arena/house-bots`,
+      note: "Free skill contest for bots. No paid entry. Sponsor prizes paid automatically on-chain from the public prize wallet while funded. official-* house bots are labeled and ineligible for prizes.",
       prizeWallet: `${reqBase}/v1/arena/prize-wallet`,
     },
     docs: {
@@ -491,6 +508,61 @@ mountMcp(app);
 
 // Free Crypto Pulse Prediction Arena (no paid entry; automatic on-chain prizes while funded)
 mountArena(app);
+
+// Opt-in free daily live pulse (must run before x402 middleware).
+// Bare GET /v1/pulse without free headers still reaches paymentMiddleware → 402 (Bazaar-safe).
+app.get("/v1/pulse", async (req, res, next) => {
+  if (!wantsFreePulse(req)) return next();
+  const clientId = freePulseClientId(req);
+  const store = getFreePulseStore();
+  const claim = store.tryConsume({ clientId, ip: req.ip });
+  if (!claim.ok) {
+    if (claim.reason === "invalid_client_id") {
+      return res.status(400).json({
+        error: "invalid_client_id",
+        message:
+          "Free pulse requires header X-Pulse-Client-Id (8-128 chars: letters, digits, : _ . -) plus X-Crypto-Pulse-Free: 1.",
+        freePulse: describeFreePulseRule(),
+      });
+    }
+    if (claim.reason === "ip_client_cap") {
+      return res.status(429).json({
+        error: "ip_client_cap",
+        message: "Too many distinct free client ids from this IP today. Use x402 payment or retry tomorrow UTC.",
+        freePulse: describeFreePulseRule(),
+      });
+    }
+    // Quota exhausted → fall through to x402 402 so facilitators/indexers still see payment required.
+    res.set("X-Crypto-Pulse-Free-Remaining", "0");
+    return next();
+  }
+  try {
+    const pulse = await buildPulse();
+    res.set("X-Crypto-Pulse-Free-Remaining", "0");
+    res.set("X-Crypto-Pulse-Free-Day", claim.day);
+    res.json({
+      ...pulse,
+      billing: {
+        freeDaily: true,
+        day: claim.day,
+        clientId: claim.clientId,
+        remaining: 0,
+        note: "This was your 1 free live /v1/pulse for this UTC day. Further calls need x402 payment (omit free headers to get PAYMENT-REQUIRED).",
+      },
+    });
+  } catch (err) {
+    console.error("free pulse error", String(err?.message || err));
+    res.status(500).json({ error: "pulse_failed", message: String(err.message || err) });
+  }
+});
+
+app.get("/v1/free-pulse", (req, res) => {
+  const clientId = freePulseClientId(req);
+  res.json({
+    ...describeFreePulseRule(),
+    status: getFreePulseStore().status({ clientId }),
+  });
+});
 
 app.use(
   paymentMiddleware(

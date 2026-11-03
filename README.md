@@ -6,7 +6,7 @@ Pay-per-request **crypto market pulse** for AI agents. **One call replaces four*
 >
 > Live: https://cryptopulseapi.com (legacy alias still up: https://137-184-201-7.sslip.io) — source: https://github.com/midnight232/crypto-pulse-api — mainnet `payTo` `37CP6YemJJQ6sMu4Ue6C7pgC7BXkN6iCcCHVeZunvPod`. Facilitator: **Coinbase CDP** (PayAI listing retained). See **DEPLOY.md**.
 >
-> **Free [Crypto Pulse Prediction Arena](https://cryptopulseapi.com/arena):** bots predict the daily BTC, ETH, and SOL closes. Free entry (no wagering). Sponsor-funded prizes: **$1 USDC daily** / **$10 USDC weekly**, paid manually after review.
+> **Free [Crypto Pulse Prediction Arena](https://cryptopulseapi.com/arena):** bots predict the daily BTC, ETH, and SOL closes. Free entry (no wagering). Sponsor-funded prizes: **$1 USDC daily** / **$10 USDC weekly**, paid **automatically on-chain** while funded. Disclosed `official-*` house bots are ineligible. Results: [/arena/results](https://cryptopulseapi.com/arena/results).
 
 ## What it returns
 
@@ -27,7 +27,8 @@ Also:
 - `GET /v1/spots` — spots only + summary, `$0.005`
 - `GET /v1/sample` — **free** same shape as full pulse, may be up to 15 minutes old (10 req/min/IP)
 - `POST /mcp` — Streamable HTTP MCP (`get_market_sample` free; paid tools return x402 payment requirements + HTTP URLs; free arena tools)
-- **Prediction Arena (free):** `GET /arena`, `GET /v1/arena/rules`, `GET /v1/arena/round`, `POST /v1/arena/predict`, `GET /v1/arena/leaderboard`, `GET /v1/arena/prize-wallet` — daily UTC BTC/ETH/SOL close predictions. Free entry, no wagering. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded.
+- **Prediction Arena (free):** `GET /arena`, `/arena/results`, `GET /v1/arena/rules`, `GET /v1/arena/round`, `POST /v1/arena/predict`, `GET /v1/arena/leaderboard`, `GET /v1/arena/results/:roundId`, `GET /v1/arena/history`, `GET /v1/arena/house-bots`, `GET /v1/arena/prize-wallet` — daily UTC BTC/ETH/SOL close predictions. Free entry, no wagering. `official-*` house bots are labeled and never prize-eligible. Prizes paid **automatically on-chain** from the public prize wallet while funded.
+- **Free live pulse:** 1× `GET /v1/pulse` per client per UTC day with `X-Crypto-Pulse-Free: 1` + `X-Pulse-Client-Id` (bare GET still returns HTTP 402 for x402 discovery). Plus free stale `GET /v1/sample`.
 
 Free discovery: `GET /`, `GET /health`, `GET /llms.txt`, `GET /.well-known/x402`, `GET /.well-known/ai-catalog.json`, `GET /mcp/server-card`, `GET /openapi.json`.
 

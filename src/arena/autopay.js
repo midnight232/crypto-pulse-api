@@ -23,9 +23,9 @@ import { sendUsdcTransfer, confirmSignature } from "./transfer.js";
 
 function dailyBoard(store, roundId) {
   const round = store.getRound(roundId);
-  if (!round) return { status: null, ranking: [] };
-  const { rows } = buildLeaderboard(round);
-  return { status: round.status, ranking: rows, scoredAt: round.scoredAt };
+  if (!round) return { status: null, ranking: [], prizeWinner: null };
+  const { rows, prizeWinner } = buildLeaderboard(round);
+  return { status: round.status, ranking: rows, prizeWinner: prizeWinner || null, scoredAt: round.scoredAt };
 }
 
 /** Daily rounds eligible for autopay (inclusive). */
@@ -387,8 +387,9 @@ export async function processAutopay(store, deps = {}) {
     if (!dailyRoundInAutopayWindow(roundId)) continue;
     const board = dailyBoard(store, roundId);
     if (board.status !== "scored") continue;
-    const winner = board.ranking?.[0];
-    if (!winner?.wallet) {
+    // House bots are never paid: use prizeWinner (first prizeEligible), not raw #1.
+    const winner = board.prizeWinner || board.ranking?.find((r) => r.prizeEligible !== false && !r.house) || null;
+    if (!winner?.wallet || winner.house || winner.prizeEligible === false) {
       const existing = store.getPayout("daily", roundId);
       if (!existing?.status || existing.status === "unpaid") {
         store.setPayout("daily", roundId, {
@@ -418,8 +419,8 @@ export async function processAutopay(store, deps = {}) {
     if (weekId < FIRST_WEEK_START) continue;
     if (!weekReadyForPayout(store, weekId, deps.now || new Date())) continue;
     const board = buildWeeklyLeaderboard(store, weekId);
-    const winner = board.winner;
-    if (!winner?.wallet || winner.avgAbsPctError == null) {
+    const winner = board.prizeWinner || board.winner;
+    if (!winner?.wallet || winner.avgAbsPctError == null || winner.house || winner.prizeEligible === false) {
       const existing = store.getPayout("weekly", weekId);
       if (!existing?.status || existing.status === "unpaid") {
         store.setPayout("weekly", weekId, {

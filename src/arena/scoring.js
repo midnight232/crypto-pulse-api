@@ -3,6 +3,7 @@
  * Never sends funds. Rankings only.
  */
 import { ARENA_ASSETS } from "./rounds.js";
+import { isHouseEntrant } from "./house.js";
 
 async function fetchClosingSpots() {
   const url =
@@ -88,11 +89,15 @@ export function buildLeaderboard(round) {
     const avgError = scored
       ? errors.reduce((s, e) => s + e, 0) / errors.length
       : null;
+    const house = isHouseEntrant({ wallet: row.wallet, botName: row.botName });
     complete.push({
       wallet: row.wallet,
       botName: row.botName,
       firstSubmittedAt: row.firstSubmittedAt,
       avgAbsPctError: avgError,
+      house,
+      prizeEligible: !house,
+      eligible: !house,
       perAsset: Object.fromEntries(
         ARENA_ASSETS.map((a) => [
           a,
@@ -118,8 +123,19 @@ export function buildLeaderboard(round) {
     return a.firstSubmittedAt.localeCompare(b.firstSubmittedAt);
   });
 
-  const rows = complete.map((r, i) => ({ rank: i + 1, ...r }));
-  return { rows, incomplete };
+  let prizeRank = 0;
+  const rows = complete.map((r, i) => {
+    const out = { rank: i + 1, ...r };
+    if (r.prizeEligible) {
+      prizeRank += 1;
+      out.prizeRank = prizeRank;
+    } else {
+      out.prizeRank = null;
+    }
+    return out;
+  });
+  const prizeWinner = rows.find((r) => r.prizeEligible && r.prizeRank === 1) || null;
+  return { rows, incomplete, prizeWinner };
 }
 
 export async function scoreRound(store, roundId, { fetchSpots = fetchClosingSpots } = {}) {

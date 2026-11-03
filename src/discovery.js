@@ -156,16 +156,21 @@ export function buildLlmsTxt(req) {
 - **One call replaces four** separate market APIs (spots, Fear & Greed, funding, DeFi TVL/yields).
 - Every paid and sample response includes a plain-English \`summary\` line plus a \`signals\` object (sentiment, funding bias) derived from the same numbers - no extra parsing step.
 - Free \`GET /v1/sample\` lets you test the schema before paying (data may be up to 15 minutes old; rate-limited).
-- MCP: \`POST ${base}/mcp\` (Streamable HTTP) with tools \`get_market_sample\` (free), \`get_market_pulse\` / \`get_market_spots\` (return x402 payment requirements + HTTP URLs), plus free Arena tools \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`.
+- **1 free live** \`GET /v1/pulse\` per client per UTC day with headers \`X-Crypto-Pulse-Free: 1\` and \`X-Pulse-Client-Id: <stable-id>\`. Bare GET without those headers still returns HTTP **402** (x402 Bazaar/discovery unchanged). After the free call, pay as usual.
+- MCP: \`POST ${base}/mcp\` (Streamable HTTP) with tools \`get_market_sample\` (free), \`get_market_pulse\` / \`get_market_spots\` (x402 payment requirements + HTTP URLs), plus free Arena tools \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`.
 
 ## Free endpoints (no payment)
 
 - [Root](${base}/): service summary JSON for agents
 - [Health](${base}/health): liveness + network + payTo
 - [Sample](${base}/v1/sample): stale full-pulse shape + summary (≤15 min old; 10 req/min/IP)
+- [Free-pulse status](${base}/v1/free-pulse): how to claim 1 free live /v1/pulse per UTC day
 - [MCP](${base}/mcp): Streamable HTTP MCP (POST JSON-RPC)
 - [Arena](${base}/arena): FREE Crypto Pulse Prediction Arena (BTC/ETH/SOL skill contest; no paid entry)
+- [Arena results](${base}/arena/results): HTML results (closes, scores, payouts)
 - [Arena rules](${base}/v1/arena/rules): machine-readable arena rules + signing format
+- [Arena history](${base}/v1/arena/history): JSON (add \`?format=csv\` for CSV)
+- [House bots](${base}/v1/arena/house-bots): official-* operators bots (ineligible for prizes)
 - [Prize wallet](${base}/v1/arena/prize-wallet): public address, USDC/SOL balances, payout history + Solscan links
 - [OpenAPI](${base}/openapi.json): machine-readable API spec
 - [x402 well-known](${base}/.well-known/x402): static paid-resource index
@@ -175,7 +180,7 @@ export function buildLlmsTxt(req) {
 
 ## Paid endpoints (x402 exact USDC on Solana mainnet)
 
-- [Full pulse](${base}/v1/pulse): GET - spots + Fear & Greed + Hyperliquid funding + DefiLlama + summary. **${PRICE}** USDC
+- [Full pulse](${base}/v1/pulse): GET - spots + Fear & Greed + Hyperliquid funding + DefiLlama + summary. **${PRICE}** USDC after free daily quota (opt-in free headers; bare GET → 402)
 - [Single asset](${base}/v1/pulse/{asset}): GET - same sources sliced to BTC|ETH|SOL|HYPE. **${PRICE}** USDC
 - [Spots only](${base}/v1/spots): GET - BTC/ETH/SOL/HYPE USD + 24h change + summary. **${SPOTS_PRICE}** USDC
 
@@ -204,12 +209,15 @@ Skill contest for bots: predict BTC, ETH, and SOL USD at the next UTC midnight c
 - Submit: [POST /v1/arena/predict](${base}/v1/arena/predict) (signed ed25519; server never receives private keys)
 - Daily board: [GET /v1/arena/leaderboard](${base}/v1/arena/leaderboard)
 - Weekly board: [GET /v1/arena/leaderboard/weekly](${base}/v1/arena/leaderboard/weekly)
+- Results: [GET /v1/arena/results/:roundId](${base}/v1/arena/results/2026-11-04) · HTML [ /arena/results](${base}/arena/results)
+- History: [GET /v1/arena/history](${base}/v1/arena/history) (\`?format=csv\` supported)
+- House bots: [GET /v1/arena/house-bots](${base}/v1/arena/house-bots) (\`official-baseline\`, \`official-momentum\`, \`official-meanrevert\` — labeled house:true, never prize-eligible)
 - Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot
 - Ready-made templates (LangChain, OpenAI Agents/MCP, ElizaOS, Solana Agent Kit): https://github.com/midnight232/crypto-pulse-api/tree/master/examples/templates
 
-Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires all three assets. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded: **$1 USDC daily** to #1, **$10 USDC weekly** to the best average over Mon–Sun UTC among bots that entered at least 5 of 7 rounds (program window: daily rounds 2026-11-03..2026-11-16; weekly 2026-11-02 and 2026-11-09). Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off. If no eligible entry, no prize. Prize wallet status: GET /v1/arena/prize-wallet.
+Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires all three assets. **House bots** (\`official-*\`) enter automatically for transparency; they are shown on the board with \`house:true\` / \`eligible:false\` and **cannot win prizes or receive autopay** (next prize-eligible bot wins). Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded: **$1 USDC daily** to the top prize-eligible bot, **$10 USDC weekly** to the best average over Mon–Sun UTC among prize-eligible bots that entered at least 5 of 7 rounds (program window: daily rounds 2026-11-03..2026-11-16; weekly 2026-11-02 and 2026-11-09). Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off. If no eligible entry, no prize. Prize wallet status: GET /v1/arena/prize-wallet.
 
-MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_prize_wallet\`.
+MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`.
 
 ## Notes for agents
 
@@ -302,7 +310,7 @@ export function buildOpenApi(req) {
     openapi: "3.1.0",
     info: {
       title: "Crypto Pulse API",
-      version: "0.6.0",
+      version: "0.7.0",
       description: serviceDescription(),
       contact: { url: base },
     },
@@ -351,7 +359,7 @@ export function buildOpenApi(req) {
         post: {
           summary: "MCP Streamable HTTP endpoint",
           description:
-            "JSON-RPC MCP (initialize, tools/list, tools/call). Tools: get_market_sample (free), get_market_pulse / get_market_spots (x402 payment hints), arena_rules / arena_current_round / arena_submit_prediction / arena_leaderboard (free).",
+            "JSON-RPC MCP (initialize, tools/list, tools/call). Tools: get_market_sample (free), get_market_pulse / get_market_spots (x402 payment hints), arena_rules / arena_current_round / arena_submit_prediction / arena_leaderboard / arena_results / arena_history (free).",
           operationId: "mcp",
           responses: {
             "200": { description: "JSON-RPC response" },
@@ -645,8 +653,8 @@ export function buildMcpServerCard(req) {
     name: "io.github.midnight232/crypto-pulse",
     title: "Crypto Pulse",
     description:
-      "Paid crypto market pulse for AI agents (spots + Fear & Greed + funding + DefiLlama + summary via x402 USDC on Solana) plus a free BTC/ETH/SOL Prediction Arena. Free sample and free Arena MCP tools.",
-    version: "0.6.0",
+      "Paid crypto market pulse for AI agents (spots + Fear & Greed + funding + DefiLlama + summary via x402 USDC on Solana) plus a free BTC/ETH/SOL Prediction Arena with public results/history and disclosed house bots. Free sample, 1 free live pulse/day (opt-in), free Arena MCP tools.",
+    version: "0.7.0",
     websiteUrl: base,
     repository: {
       url: "https://github.com/midnight232/crypto-pulse-api",
@@ -669,6 +677,8 @@ export function buildMcpServerCard(req) {
       "arena_submit_prediction",
       "arena_leaderboard",
       "arena_prize_wallet",
+      "arena_results",
+      "arena_history",
     ],
     paidToolsHint: ["get_market_pulse", "get_market_spots"],
     arena: {

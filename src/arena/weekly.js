@@ -2,6 +2,7 @@
  * Weekly arena leaderboard helpers.
  */
 import { buildLeaderboard } from "./scoring.js";
+import { isHouseEntrant } from "./house.js";
 import {
   WEEKLY_MIN_ROUNDS,
   WEEKLY_PRIZE_USDC,
@@ -25,16 +26,19 @@ export function buildWeeklyLeaderboard(store, weekId) {
     if (!round) continue;
     const { rows } = buildLeaderboard(round);
     for (const row of rows) {
+      const house = row.house || isHouseEntrant({ wallet: row.wallet, botName: row.botName });
       if (!byWallet.has(row.wallet)) {
         byWallet.set(row.wallet, {
           wallet: row.wallet,
           botName: row.botName || null,
+          house,
           roundsEntered: [],
           scoredErrors: [],
         });
       }
       const w = byWallet.get(row.wallet);
       if (row.botName) w.botName = row.botName;
+      w.house = w.house || house;
       w.roundsEntered.push(roundId);
       if (round.status === "scored" && row.avgAbsPctError != null) {
         w.scoredErrors.push({ roundId, avgAbsPctError: row.avgAbsPctError });
@@ -46,12 +50,13 @@ export function buildWeeklyLeaderboard(store, weekId) {
   const ineligible = [];
   for (const w of byWallet.values()) {
     const entered = w.roundsEntered.length;
-    const eligible = entered >= WEEKLY_MIN_ROUNDS;
+    const house = Boolean(w.house);
+    const meetsMin = entered >= WEEKLY_MIN_ROUNDS;
+    const eligible = meetsMin && !house;
     const avg =
       w.scoredErrors.length > 0
         ? w.scoredErrors.reduce((s, e) => s + e.avgAbsPctError, 0) / w.scoredErrors.length
         : null;
-    const firstScored = w.scoredErrors.map((e) => e.roundId).sort()[0] || null;
     const row = {
       wallet: w.wallet,
       botName: w.botName,
@@ -59,6 +64,8 @@ export function buildWeeklyLeaderboard(store, weekId) {
       roundsScored: w.scoredErrors.length,
       roundIds: w.roundsEntered.slice().sort(),
       avgAbsPctError: avg,
+      house,
+      prizeEligible: eligible,
       eligible,
       minRoundsRequired: WEEKLY_MIN_ROUNDS,
     };
@@ -91,5 +98,6 @@ export function buildWeeklyLeaderboard(store, weekId) {
     ranking: rows,
     ineligible,
     winner: rows[0] || null,
+    prizeWinner: rows[0] || null,
   };
 }

@@ -6,12 +6,16 @@ import { publicBaseUrl } from "../discovery.js";
 import {
   deletePredictionAdmin,
   exportWinners,
+  getArenaHistory,
+  arenaHistoryToCsv,
   getCurrentRound,
   getLeaderboard,
   getWeeklyLeaderboard,
   getPrizeStatus,
   getRules,
   getRoundById,
+  getRoundResults,
+  listHouseWalletsPublic,
   setPayoutAdmin,
   signingHelp,
   startArenaScorer,
@@ -19,6 +23,7 @@ import {
 } from "./index.js";
 import { currentWeekId } from "./prizes.js";
 import { renderArenaHtml } from "./page.js";
+import { renderResultsIndexHtml, renderRoundResultsHtml } from "./results-page.js";
 
 function adminAuthorized(req) {
   const expected = (process.env.ARENA_ADMIN_TOKEN || "").trim();
@@ -167,6 +172,69 @@ export function mountArena(app) {
         cutoffAt: err.cutoffAt,
       });
     }
+  });
+
+
+  app.get("/arena/results", (req, res) => {
+    try {
+      const history = getArenaHistory({ limit: 60, includePredictions: false });
+      const html = renderResultsIndexHtml({
+        rounds: history.rounds,
+        baseUrl: publicBaseUrl(req),
+      });
+      res.type("html").send(html);
+    } catch (err) {
+      console.error("arena results index error", String(err?.message || err));
+      res.status(500).type("html").send("<h1>Results unavailable</h1>");
+    }
+  });
+
+  app.get("/arena/results/:roundId", (req, res) => {
+    try {
+      const results = getRoundResults(req.params.roundId);
+      res.type("html").send(renderRoundResultsHtml({ results, baseUrl: publicBaseUrl(req) }));
+    } catch (err) {
+      res.status(400).type("html").send(`<h1>Bad round</h1><p>${String(err.message || err)}</p>`);
+    }
+  });
+
+  app.get("/v1/arena/results/:roundId", (req, res) => {
+    try {
+      res.json(getRoundResults(req.params.roundId));
+    } catch (err) {
+      res.status(400).json({ error: err.code || "bad_request", message: err.message });
+    }
+  });
+
+  const historyLimiter = rateLimit({
+    windowMs: 60_000,
+    max: Number(process.env.ARENA_HISTORY_RATE_LIMIT_MAX || 60),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "rate_limited", message: "Arena history limited. Slow down." },
+  });
+
+  app.get("/v1/arena/history", historyLimiter, (req, res) => {
+    try {
+      const limit = Number(req.query.limit || 30);
+      const includePredictions = String(req.query.predictions || "1") !== "0";
+      const data = getArenaHistory({ limit, includePredictions });
+      const format = String(req.query.format || "json").toLowerCase();
+      if (format === "csv") {
+        res.type("text/csv").send(arenaHistoryToCsv(getArenaHistory({ limit, includePredictions: true })));
+      } else {
+        res.json(data);
+      }
+    } catch (err) {
+      res.status(400).json({ error: err.code || "history_failed", message: err.message });
+    }
+  });
+
+  app.get("/v1/arena/house-bots", (_req, res) => {
+    res.json({
+      houseBots: listHouseWalletsPublic(),
+      note: "Official house bots (official-*). Shown on leaderboards with house:true; never prize-eligible or autopaid.",
+    });
   });
 
   app.get("/v1/arena/admin/export", (req, res) => {

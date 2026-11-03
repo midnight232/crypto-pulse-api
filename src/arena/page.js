@@ -27,10 +27,15 @@ function rankRows(ranking, emptyMsg) {
         r.roundsEntered != null
           ? `<td>${esc(r.roundsEntered)}/${esc(r.minRoundsRequired || 5)}</td>`
           : `<td>${esc(r.firstSubmittedAt || "—")}</td>`;
+      const house = r.house ? ` <span class="house">house</span>` : "";
+      const elig =
+        r.prizeEligible === false || r.eligible === false || r.house
+          ? ` <span class="muted">ineligible</span>`
+          : "";
       return `<tr>
-        <td>${r.rank}</td>
-        <td><code>${esc(r.wallet)}</code></td>
-        <td>${esc(r.botName || "—")}</td>
+        <td>${r.rank}${r.prizeRank != null ? ` <span class="muted">(prize #${r.prizeRank})</span>` : ""}</td>
+        <td><code>${esc(r.wallet)}</code>${house}</td>
+        <td>${esc(r.botName || "—")}${elig}</td>
         <td>${esc(err)}</td>
         ${extra}
       </tr>`;
@@ -73,6 +78,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
     .ok { color: var(--ok); font-weight: 600; }
     .locked { color: var(--warn); font-weight: 600; }
     .pill { display:inline-block; background:#1c2545; border-radius:999px; padding:.15rem .65rem; font-size:.85rem; margin-right:.35rem; margin-bottom:.35rem; }
+    .house { display:inline-block; background:#3a2f12; color:var(--warn); border-radius:999px; padding:.05rem .45rem; font-size:.75rem; margin-left:.25rem; }
     ul.compact li { margin: .25rem 0; }
   </style>
 </head>
@@ -132,7 +138,8 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
       <li>Unique wallets entered: <strong>${esc(current?.uniqueWallets ?? 0)}</strong></li>
       <li>Daily prize if #1 after scoring: <strong>$${esc(prizes.daily.amountUsdc)} USDC</strong></li>
     </ul>
-    <p class="muted">Predict each asset's USD spot at settlement (CoinGecko, same source as this API). Ranked by average absolute % error across all three assets. Ties go to the earlier first submission.</p>
+    <p class="muted">Predict each asset's USD spot at settlement (CoinGecko, same source as this API). Ranked by average absolute % error across all three assets. Ties go to the earlier first submission. Official house bots (<code>official-*</code>) appear on the board with a <span class="house">house</span> label and are <strong>not</strong> prize-eligible.</p>
+    <p><a href="${esc(baseUrl)}/arena/results">Results</a> · <a href="${esc(baseUrl)}/v1/arena/history">History JSON</a> · <a href="${esc(baseUrl)}/v1/arena/history?format=csv">History CSV</a> · <a href="${esc(baseUrl)}/v1/arena/house-bots">House bots</a></p>
   </div>
 
   <h2>Daily leaderboard${current?.roundId ? ` · ${esc(current.roundId)}` : ""}</h2>

@@ -118,7 +118,7 @@ export function arenaRules() {
     prizes: {
       funding: "Sponsor-funded by the operator (Matt). Not funded by entrants.",
       payout:
-        "Automatic on-chain USDC from the public prize wallet after scoring, while the funded program is active. Caps: max $10 per payout, max $11 USDC total per UTC day. Insufficient balance → unpaid/owed (not dropped). Kill switch ARENA_AUTOPAY=off. If there is no eligible entry, no prize.",
+        "Automatic on-chain USDC from the public prize wallet after scoring, while the funded program is active. Caps: max $10 per payout, max $11 USDC total per UTC day. Insufficient balance → unpaid/owed (not dropped). Kill switch ARENA_AUTOPAY=off. House bots (official-*) are never eligible. If there is no prize-eligible entry, no prize.",
       amount: prizePoolLabel(),
       short: prizePoolShort(),
       details: prizeSummary(),
@@ -127,6 +127,12 @@ export function arenaRules() {
     },
     antiSybil:
       "One serious entry per operator. Obvious multi-wallet farming may be disqualified at sponsor discretion.",
+    houseBots: {
+      names: ["official-baseline", "official-momentum", "official-meanrevert"],
+      disclosure:
+        "These are operator-run house bots. They enter daily rounds automatically, appear on leaderboards with house:true, and are never prize-eligible or autopaid. The next prize-eligible bot receives any prize instead.",
+      reservedPrefix: "official-",
+    },
     disclaimer:
       "Skill contest for bots. Free to enter. No purchase necessary. Not gambling. Market data is not financial advice. Void where prohibited.",
   };

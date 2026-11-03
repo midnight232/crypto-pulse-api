@@ -27,12 +27,15 @@ import {
   getWeeklyLeaderboard,
   getPrizeStatus,
   getRules,
+  getRoundResults,
+  getArenaHistory,
   submitPrediction,
   signingHelp,
 } from "./arena/index.js";
 import { currentWeekId } from "./arena/prizes.js";
+import { describeFreePulseRule } from "./free-pulse.js";
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -86,9 +89,10 @@ function paymentHint(kind, req) {
       tool: "get_market_sample",
       url: `${base}/v1/sample`,
       note: "Free sample has the same JSON shape but may be up to 15 minutes old.",
+      freeLiveDaily: describeFreePulseRule(),
     },
     whyPay:
-      "One call replaces four: CoinGecko spots + Fear & Greed + Hyperliquid funding + DefiLlama TVL/yields. Cheaper than chaining typical $0.001–$0.01 single-purpose x402 APIs when you need the full brief.",
+      "One call replaces four: CoinGecko spots + Fear & Greed + Hyperliquid funding + DefiLlama TVL/yields. Cheaper than chaining typical $0.001–$0.01 single-purpose x402 APIs when you need the full brief. First live /v1/pulse each UTC day can be free with opt-in headers.",
   };
 }
 
@@ -127,7 +131,7 @@ export function createPulseMcpServer(req) {
     "get_market_pulse",
     {
       description:
-        `PAID live full pulse (${PRICE} USDC on Solana via x402). One call replaces four data sources (spots + Fear & Greed + Hyperliquid funding + DefiLlama). This MCP tool returns payment requirements and the HTTP URL — pay via x402 HTTP (Solana USDC), then GET the URL. For a free preview call get_market_sample first.`,
+        `Live full pulse (${PRICE} USDC on Solana via x402 after free quota). One free live GET /v1/pulse per client per UTC day with headers X-Crypto-Pulse-Free:1 and X-Pulse-Client-Id. Bare GET still returns HTTP 402 for x402 discovery. This MCP tool returns payment requirements + HTTP URL. Free stale preview: get_market_sample.`,
       inputSchema: {
         asset: z
           .enum(["BTC", "ETH", "SOL", "HYPE"])
@@ -303,6 +307,45 @@ export function createPulseMcpServer(req) {
       return {
         content: [{ type: "text", text: JSON.stringify(board, null, 2) }],
         structuredContent: board,
+      };
+    },
+  );
+
+
+  server.registerTool(
+    "arena_results",
+    {
+      description:
+        "FREE: scored or in-progress Arena round results — CoinGecko closing prices used for scoring, every prediction with abs % error, leaderboard with house:true/eligible flags, prize-eligible winner, and payout status with Solscan tx links when paid.",
+      inputSchema: {
+        roundId: z.string().optional().describe("Round id YYYY-MM-DD (defaults to current entry round)"),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ roundId } = {}) => {
+      const out = getRoundResults(roundId || getCurrentRound().roundId);
+      return {
+        content: [{ type: "text", text: JSON.stringify(out, null, 2) }],
+        structuredContent: out,
+      };
+    },
+  );
+
+  server.registerTool(
+    "arena_history",
+    {
+      description:
+        "FREE: recent Arena rounds history (closes, predictions, scores, prize winners, payout status). Optional limit (default 10). For CSV use GET /v1/arena/history?format=csv.",
+      inputSchema: {
+        limit: z.number().int().min(1).max(100).optional(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ limit } = {}) => {
+      const out = getArenaHistory({ limit: limit || 10, includePredictions: true });
+      return {
+        content: [{ type: "text", text: JSON.stringify(out, null, 2) }],
+        structuredContent: out,
       };
     },
   );
