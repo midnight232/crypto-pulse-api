@@ -101,6 +101,8 @@ async def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-mcp", action="store_true", help="Skip MCP tool listing")
     args = parser.parse_args()
+    if str(os.environ.get("ARENA_DRY_RUN", "")).lower() in ("1", "true", "yes"):
+        args.dry_run = True
 
     out: dict = {"base": get_base(), "mcpUrl": MCP_URL}
     if not args.skip_mcp:

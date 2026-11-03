@@ -5,7 +5,7 @@
  */
 import { enterNaive, fetchPrizeWallet, fetchRules } from "../shared/arena_client.mjs";
 
-const dryRun = process.argv.includes("--dry-run");
+const dryRun = process.argv.includes("--dry-run") || ["1","true","yes"].includes(String(process.env.ARENA_DRY_RUN || "").toLowerCase());
 const out = {
   rules: await fetchRules(),
   prizeWallet: await fetchPrizeWallet(),

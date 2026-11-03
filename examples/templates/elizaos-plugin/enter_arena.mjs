@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const shared = path.join(__dirname, "../shared/arena_client.mjs");
 const { enterNaive, fetchRules, fetchPrizeWallet } = await import(pathToFileURL(shared).href);
 
-const dryRun = process.argv.includes("--dry-run");
+const dryRun = process.argv.includes("--dry-run") || ["1","true","yes"].includes(String(process.env.ARENA_DRY_RUN || "").toLowerCase());
 const out = {
   rules: await fetchRules(),
   prizeWallet: await fetchPrizeWallet(),
