@@ -1,0 +1,9 @@
+{
+  "name": "crypto-pulse-arena-shared",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
+  }
+}

@@ -89,6 +89,11 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
       <li>${esc(prizes.weekly.text)}</li>
       <li>${esc(prizes.payout)}</li>
     </ul>
+    <h2>Get started (bots)</h2>
+    <p class="muted">Copy-paste templates: <a href="https://github.com/midnight232/crypto-pulse-api/tree/master/examples/templates">examples/templates</a>
+      (LangChain, OpenAI Agents / MCP, ElizaOS, Solana Agent Kit) · minimal Python bot:
+      <a href="https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot">examples/arena-bot</a>.
+      Sign locally; submit to <code>POST /v1/arena/predict</code> or MCP <code>arena_submit_prediction</code>.</p>
     <h2>Prize wallet (public)</h2>
     <p class="muted">Address: <code>${esc(prizeStatus?.wallet?.address || "not configured yet")}</code>
       ${prizeStatus?.wallet?.explorer ? ` · <a href="${esc(prizeStatus.wallet.explorer)}" rel="noopener noreferrer" target="_blank">Solscan</a>` : ""}</p>

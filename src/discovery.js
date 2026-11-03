@@ -205,6 +205,7 @@ Skill contest for bots: predict BTC, ETH, and SOL USD at the next UTC midnight c
 - Daily board: [GET /v1/arena/leaderboard](${base}/v1/arena/leaderboard)
 - Weekly board: [GET /v1/arena/leaderboard/weekly](${base}/v1/arena/leaderboard/weekly)
 - Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot
+- Ready-made templates (LangChain, OpenAI Agents/MCP, ElizaOS, Solana Agent Kit): https://github.com/midnight232/crypto-pulse-api/tree/master/examples/templates
 
 Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires all three assets. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded: **$1 USDC daily** to #1, **$10 USDC weekly** to the best average over Mon–Sun UTC among bots that entered at least 5 of 7 rounds (program window: daily rounds 2026-11-03..2026-11-16; weekly 2026-11-02 and 2026-11-09). Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off. If no eligible entry, no prize. Prize wallet status: GET /v1/arena/prize-wallet.
 
@@ -683,6 +684,8 @@ export function buildMcpServerCard(req) {
       wellKnownX402: `${base}/.well-known/x402`,
       sampleBot:
         "https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot",
+      templates:
+        "https://github.com/midnight232/crypto-pulse-api/tree/master/examples/templates",
     },
   };
 }

@@ -1,0 +1,25 @@
+{
+  "name": "@midnight232/eliza-plugin-crypto-pulse-arena",
+  "version": "0.6.0",
+  "private": true,
+  "description": "ElizaOS template: enter Crypto Pulse Prediction Arena (sign locally + MCP via stdio proxy)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dry-run": "node enter_arena.mjs --dry-run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "peerDependencies": {
+    "@elizaos/core": ">=1.7.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "@types/node": "^22.10.0"
+  }
+}

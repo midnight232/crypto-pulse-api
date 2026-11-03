@@ -82,7 +82,7 @@ Official MCP Registry: `io.github.midnight232/crypto-pulse` (`mcp/server.json`).
 
 Live page: https://cryptopulseapi.com/arena
 
-Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to #1. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds). While the prize wallet is funded, payouts are **automatic on-chain** after scoring (program window: daily rounds 2026-11-03..2026-11-16; weekly weeks 2026-11-02 and 2026-11-09). Kill switch: `ARENA_AUTOPAY=off`. Insufficient balance is recorded as unpaid/owed. Weekly board: `GET /v1/arena/leaderboard/weekly`. Example: `npm run arena:submit -- --asset BTC --price 100000`. Python sample bot: [`examples/arena-bot`](./examples/arena-bot).
+Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to #1. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds). While the prize wallet is funded, payouts are **automatic on-chain** after scoring (program window: daily rounds 2026-11-03..2026-11-16; weekly weeks 2026-11-02 and 2026-11-09). Kill switch: `ARENA_AUTOPAY=off`. Insufficient balance is recorded as unpaid/owed. Weekly board: `GET /v1/arena/leaderboard/weekly`. Example: `npm run arena:submit -- --asset BTC --price 100000`. Python sample bot: [`examples/arena-bot`](./examples/arena-bot). Ready-made agent templates: [`examples/templates`](./examples/templates) (LangChain, OpenAI Agents/MCP, ElizaOS, Solana Agent Kit).
 
 ## Project layout
 

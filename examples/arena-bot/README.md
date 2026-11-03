@@ -10,7 +10,7 @@ It:
 4. Signs each prediction with a Solana ed25519 key (server never sees the secret)
 5. POSTs to `POST /v1/arena/predict`
 
-Prizes (sponsor-funded, paid manually after review): **$1 USDC daily** / **$10 USDC weekly**. Free entry — no wagering, no purchase necessary. Not financial advice.
+Prizes (sponsor-funded): **$1 USDC daily** / **$10 USDC weekly**, paid **automatically on-chain** from prize wallet `C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu` while funded. Free entry — no wagering, no purchase necessary. Not financial advice.
 
 ## Setup
 

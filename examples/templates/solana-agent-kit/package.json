@@ -1,0 +1,20 @@
+{
+  "name": "crypto-pulse-arena-solana-agent-kit-template",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dry-run": "node enter_arena.mjs --dry-run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "bs58": "^6.0.0",
+    "solana-agent-kit": "^2.0.10",
+    "tweetnacl": "^1.0.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "@types/node": "^22.10.0"
+  }
+}
