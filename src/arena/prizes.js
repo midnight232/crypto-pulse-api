@@ -1,11 +1,11 @@
 /**
  * Sponsor prize amounts and weekly windows for the Prediction Arena.
- * Manual USDC payouts only — the server never sends funds.
+ * Automatic USDC payouts from the public prize wallet while funded (ARENA_AUTOPAY).
  */
 
-/** Daily #1 prize in USDC (informational; paid manually). */
+/** Daily #1 prize in USDC (paid automatically on-chain while funded). */
 export const DAILY_PRIZE_USDC = 1;
-/** Weekly winner prize in USDC (informational; paid manually). */
+/** Weekly winner prize in USDC (paid automatically on-chain while funded). */
 export const WEEKLY_PRIZE_USDC = 10;
 /** Minimum distinct daily rounds (complete BTC+ETH+SOL) required in a week. */
 export const WEEKLY_MIN_ROUNDS = 5;
@@ -81,8 +81,14 @@ export function prizeSummary() {
         `Later weeks follow the same Monday–Sunday UTC calendar.`,
     },
     payout:
-      "Both prizes are paid manually by the sponsor in USDC on Solana to the winning wallet after review, usually within a few days of the period ending. The server never sends funds. If there is no eligible entry, no prize.",
-    shortLabel: `Daily $${DAILY_PRIZE_USDC} USDC · Weekly $${WEEKLY_PRIZE_USDC} USDC (min ${WEEKLY_MIN_ROUNDS}/7 rounds)`,
+      "Both prizes are paid automatically on-chain in USDC on Solana from the public prize wallet after the round/week is scored, while the funded program is active (daily rounds 2026-11-03 through 2026-11-16; weekly contests 2026-11-02–08 and 2026-11-09–15). If the prize wallet balance is insufficient, the prize is recorded as unpaid/owed until funded. Kill switch: ARENA_AUTOPAY=off. If there is no eligible entry, no prize.",
+    shortLabel: `Daily ${DAILY_PRIZE_USDC} USDC · Weekly ${WEEKLY_PRIZE_USDC} USDC (min ${WEEKLY_MIN_ROUNDS}/7 rounds)`,
+    autopayProgram: {
+      dailyRounds: { start: "2026-11-03", end: "2026-11-16" },
+      weeklyWeekIds: ["2026-11-02", "2026-11-09"],
+      maxSingleUsdc: 10,
+      maxPerUtcDayUsdc: 11,
+    },
   };
 }
 

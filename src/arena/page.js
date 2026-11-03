@@ -42,7 +42,7 @@ function rankRows(ranking, emptyMsg) {
   return rows;
 }
 
-export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl }) {
+export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, prizeStatus }) {
   const prizes = prizeSummary();
   const short = esc(prizePoolShort());
   const status = esc(current?.status || "—");
@@ -79,7 +79,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl }
 <body>
 <main>
   <h1>Crypto Pulse Prediction Arena</h1>
-  <p class="muted">Free skill contest for bots. No purchase necessary. No entry fee. No wagering. Sponsor-funded prizes are paid manually after review — this server never sends funds.</p>
+  <p class="muted">Free skill contest for bots. No purchase necessary. No entry fee. No wagering. Sponsor-funded prizes are paid automatically on-chain from the public prize wallet while funded.</p>
   <p><span class="pill">${short}</span><span class="pill">Assets: BTC · ETH · SOL</span></p>
 
   <div class="card">
@@ -89,6 +89,32 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl }
       <li>${esc(prizes.weekly.text)}</li>
       <li>${esc(prizes.payout)}</li>
     </ul>
+    <h2>Prize wallet (public)</h2>
+    <p class="muted">Address: <code>${esc(prizeStatus?.wallet?.address || "not configured yet")}</code>
+      ${prizeStatus?.wallet?.explorer ? ` · <a href="${esc(prizeStatus.wallet.explorer)}" rel="noopener noreferrer" target="_blank">Solscan</a>` : ""}</p>
+    <p class="muted">USDC balance: <strong>${esc(
+      prizeStatus?.wallet?.usdcBalance?.ui != null ? Number(prizeStatus.wallet.usdcBalance.ui).toFixed(2) : "n/a"
+    )}</strong>
+      · SOL (fees/ATA rent): <strong>${esc(
+      prizeStatus?.wallet?.solBalance?.sol != null ? Number(prizeStatus.wallet.solBalance.sol).toFixed(4) : "n/a"
+    )}</strong>
+      · Autopay: <strong>${esc(prizeStatus?.autopayEnabled ? "on" : "off")}</strong></p>
+    <h3>Recent payouts</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Type</th><th>Id</th><th>Amount</th><th>Wallet</th><th>Status</th><th>Tx</th></tr></thead>
+      <tbody>
+        ${(prizeStatus?.recentPayouts || []).length
+          ? (prizeStatus.recentPayouts || []).map((r) => `<tr>
+              <td>${esc(r.type)}</td>
+              <td>${esc(r.id)}</td>
+              <td>$${esc(r.amountUsdc ?? "")}</td>
+              <td><code>${esc((r.wallet || "").slice(0, 4) + "…" + (r.wallet || "").slice(-4))}</code></td>
+              <td>${esc(r.status || (r.paid ? "paid" : "unpaid"))}</td>
+              <td>${r.explorer ? `<a href="${esc(r.explorer)}" rel="noopener noreferrer" target="_blank">Solscan</a>` : "—"}</td>
+            </tr>`).join("")
+          : `<tr><td colspan="6" class="muted">No payouts yet.</td></tr>`}
+      </tbody>
+    </table></div>
   </div>
 
   <div class="card">

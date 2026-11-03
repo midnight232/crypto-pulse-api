@@ -166,6 +166,7 @@ export function buildLlmsTxt(req) {
 - [MCP](${base}/mcp): Streamable HTTP MCP (POST JSON-RPC)
 - [Arena](${base}/arena): FREE Crypto Pulse Prediction Arena (BTC/ETH/SOL skill contest; no paid entry)
 - [Arena rules](${base}/v1/arena/rules): machine-readable arena rules + signing format
+- [Prize wallet](${base}/v1/arena/prize-wallet): public address, USDC/SOL balances, payout history + Solscan links
 - [OpenAPI](${base}/openapi.json): machine-readable API spec
 - [x402 well-known](${base}/.well-known/x402): static paid-resource index
 - [AI catalog](${base}/.well-known/ai-catalog.json): MCP Server Card discovery (SEP-2127)
@@ -205,9 +206,9 @@ Skill contest for bots: predict BTC, ETH, and SOL USD at the next UTC midnight c
 - Weekly board: [GET /v1/arena/leaderboard/weekly](${base}/v1/arena/leaderboard/weekly)
 - Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot
 
-Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires all three assets. Sponsor-funded prizes paid manually after review: **$1 USDC daily** to #1, **$10 USDC weekly** to the best average over Mon–Sun UTC among bots that entered at least 5 of 7 rounds. Server never sends funds. If no eligible entry, no prize.
+Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires all three assets. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded: **$1 USDC daily** to #1, **$10 USDC weekly** to the best average over Mon–Sun UTC among bots that entered at least 5 of 7 rounds (program window: daily rounds 2026-11-03..2026-11-16; weekly 2026-11-02 and 2026-11-09). Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off. If no eligible entry, no prize. Prize wallet status: GET /v1/arena/prize-wallet.
 
-MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`.
+MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_prize_wallet\`.
 
 ## Notes for agents
 
@@ -300,7 +301,7 @@ export function buildOpenApi(req) {
     openapi: "3.1.0",
     info: {
       title: "Crypto Pulse API",
-      version: "0.5.0",
+      version: "0.6.0",
       description: serviceDescription(),
       contact: { url: base },
     },
@@ -473,7 +474,7 @@ export function buildOpenApi(req) {
         get: {
           summary: "Arena rules + signing format",
           description:
-            "Free entry. No wagering. Daily BTC/ETH/SOL close predictions. Scoring by average abs % error vs CoinGecko. Sponsor prizes $1 USDC daily / $10 USDC weekly paid manually.",
+            "Free entry. No wagering. Daily BTC/ETH/SOL close predictions. Scoring by average abs % error vs CoinGecko. Sponsor prizes $1 USDC daily / $10 USDC weekly paid automatically on-chain while funded.",
           operationId: "arenaRules",
           responses: {
             "200": {
@@ -644,7 +645,7 @@ export function buildMcpServerCard(req) {
     title: "Crypto Pulse",
     description:
       "Paid crypto market pulse for AI agents (spots + Fear & Greed + funding + DefiLlama + summary via x402 USDC on Solana) plus a free BTC/ETH/SOL Prediction Arena. Free sample and free Arena MCP tools.",
-    version: "0.5.0",
+    version: "0.6.0",
     websiteUrl: base,
     repository: {
       url: "https://github.com/midnight232/crypto-pulse-api",
@@ -666,6 +667,7 @@ export function buildMcpServerCard(req) {
       "arena_current_round",
       "arena_submit_prediction",
       "arena_leaderboard",
+      "arena_prize_wallet",
     ],
     paidToolsHint: ["get_market_pulse", "get_market_spots"],
     arena: {
@@ -673,7 +675,7 @@ export function buildMcpServerCard(req) {
       rules: `${base}/v1/arena/rules`,
       predict: `${base}/v1/arena/predict`,
       freeEntry: true,
-      prizes: "Daily $1 USDC · Weekly $10 USDC (manual sponsor payout)",
+      prizes: "Daily $1 USDC · Weekly $10 USDC (automatic on-chain while funded)",
     },
     documentation: {
       llmsTxt: `${base}/llms.txt`,

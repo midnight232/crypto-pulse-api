@@ -27,7 +27,7 @@ Also:
 - `GET /v1/spots` — spots only + summary, `$0.005`
 - `GET /v1/sample` — **free** same shape as full pulse, may be up to 15 minutes old (10 req/min/IP)
 - `POST /mcp` — Streamable HTTP MCP (`get_market_sample` free; paid tools return x402 payment requirements + HTTP URLs; free arena tools)
-- **Prediction Arena (free):** `GET /arena`, `GET /v1/arena/rules`, `GET /v1/arena/round`, `POST /v1/arena/predict`, `GET /v1/arena/leaderboard` — daily UTC BTC/ETH/SOL close predictions. Free entry, no wagering. Sponsor-funded prizes paid **manually** after review (server never holds payout keys).
+- **Prediction Arena (free):** `GET /arena`, `GET /v1/arena/rules`, `GET /v1/arena/round`, `POST /v1/arena/predict`, `GET /v1/arena/leaderboard`, `GET /v1/arena/prize-wallet` — daily UTC BTC/ETH/SOL close predictions. Free entry, no wagering. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded.
 
 Free discovery: `GET /`, `GET /health`, `GET /llms.txt`, `GET /.well-known/x402`, `GET /.well-known/ai-catalog.json`, `GET /mcp/server-card`, `GET /openapi.json`.
 
@@ -60,6 +60,7 @@ npm run smoke
 npm run test:summary
 # Against a running server:
 PUBLIC_BASE_URL=http://127.0.0.1:4021 npm run test:mcp
+npm run test:autopay
 npm run buy                # full paid flow (needs buyer DEVNET USDC)
 ```
 
@@ -81,7 +82,7 @@ Official MCP Registry: `io.github.midnight232/crypto-pulse` (`mcp/server.json`).
 
 Live page: https://cryptopulseapi.com/arena
 
-Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to #1. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds); first week is 2026-11-02 through 2026-11-08. Payouts are manual after Matt approves — nothing is spent automatically. Weekly board: `GET /v1/arena/leaderboard/weekly`. Example: `npm run arena:submit -- --asset BTC --price 100000`. Python sample bot: [`examples/arena-bot`](./examples/arena-bot).
+Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to #1. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds). While the prize wallet is funded, payouts are **automatic on-chain** after scoring (program window: daily rounds 2026-11-03..2026-11-16; weekly weeks 2026-11-02 and 2026-11-09). Kill switch: `ARENA_AUTOPAY=off`. Insufficient balance is recorded as unpaid/owed. Weekly board: `GET /v1/arena/leaderboard/weekly`. Example: `npm run arena:submit -- --asset BTC --price 100000`. Python sample bot: [`examples/arena-bot`](./examples/arena-bot).
 
 ## Project layout
 

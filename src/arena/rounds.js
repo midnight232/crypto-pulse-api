@@ -6,7 +6,7 @@
  * cutoffAt = closeAt − 12h  (no more entries)
  * openAt   = closeAt − 36h  (previous cutoff — always an open target after noon)
  *
- * Free entry. No stakes. Sponsor-funded prizes paid manually after review.
+ * Free entry. No stakes. Sponsor-funded prizes paid automatically on-chain while funded.
  */
 
 import { prizePoolLabel, prizePoolShort, prizeSummary } from "./prizes.js";
@@ -118,7 +118,7 @@ export function arenaRules() {
     prizes: {
       funding: "Sponsor-funded by the operator (Matt). Not funded by entrants.",
       payout:
-        "Manual only, after sponsor review, usually within a few days of the period ending. Paid in USDC on Solana to the winning wallet. The server never holds payout keys and never sends funds automatically. If there is no eligible entry, no prize.",
+        "Automatic on-chain USDC from the public prize wallet after scoring, while the funded program is active. Caps: max $10 per payout, max $11 USDC total per UTC day. Insufficient balance → unpaid/owed (not dropped). Kill switch ARENA_AUTOPAY=off. If there is no eligible entry, no prize.",
       amount: prizePoolLabel(),
       short: prizePoolShort(),
       details: prizeSummary(),

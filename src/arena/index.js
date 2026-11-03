@@ -1,6 +1,6 @@
 /**
  * Crypto Pulse Prediction Arena — public API used by HTTP + MCP.
- * Free entry. Manual sponsor payouts only. No automatic transfers.
+ * Free entry. Automatic USDC payouts from the public prize wallet while funded.
  */
 import { ArenaStore } from "./store.js";
 import {
@@ -23,6 +23,8 @@ import {
   weekBounds,
 } from "./prizes.js";
 import { buildWeeklyLeaderboard } from "./weekly.js";
+import { processAutopay, listPublicPayoutHistory, autopayEnabled } from "./autopay.js";
+import { getPrizeWalletPublicStatus, resolvePrizeWalletAddress } from "./wallet.js";
 import { verifyPredictionSignature, buildCanonicalMessage, normalizePrice, normalizeAsset, sanitizeBotName } from "./verify.js";
 import { buildLeaderboard, scoreRound } from "./scoring.js";
 
@@ -228,8 +230,9 @@ export function submitPrediction(body) {
 
 export function exportWinners({ roundId, weekId } = {}) {
   const store = getStore();
-  const payoutNote =
-    "Manual payout only after sponsor approval. This export is informational — the server cannot send funds.";
+  const payoutNote = autopayEnabled()
+    ? "Automatic on-chain USDC payouts from the public prize wallet while funded and within the program window. Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off."
+    : "Autopay is disabled (ARENA_AUTOPAY=off). Eligible prizes are recorded as unpaid until re-enabled or paid manually.";
 
   const daily = [];
   const roundIds = store.listRoundIds().sort();
@@ -242,12 +245,18 @@ export function exportWinners({ roundId, weekId } = {}) {
       roundId: id,
       status: board.status,
       scoredAt: board.scoredAt,
-      amountUsdc: DAILY_PRIZE_USDC,
-      wallet: winner?.wallet || null,
-      botName: winner?.botName || null,
-      score: winner?.avgAbsPctError ?? null,
-      paid: payout.paid,
+      amountUsdc: payout.amountUsdc ?? DAILY_PRIZE_USDC,
+      wallet: payout.wallet || winner?.wallet || null,
+      botName: payout.botName || winner?.botName || null,
+      score: payout.score ?? winner?.avgAbsPctError ?? null,
+      paid: Boolean(payout.paid || payout.status === "paid"),
+      payoutStatus: payout.status || (payout.paid ? "paid" : "unpaid"),
       paidAt: payout.paidAt,
+      pendingAt: payout.pendingAt || null,
+      txSignature: payout.txSignature || null,
+      explorer: payout.explorer || null,
+      paidUtcDay: payout.paidUtcDay || null,
+      error: payout.error || null,
       note: payout.note,
       eligible: Boolean(winner) && board.status === "scored",
     });
@@ -275,13 +284,19 @@ export function exportWinners({ roundId, weekId } = {}) {
       weekId: wid,
       startRoundId: board.startRoundId,
       endRoundId: board.endRoundId,
-      amountUsdc: WEEKLY_PRIZE_USDC,
-      wallet: winner?.wallet || null,
-      botName: winner?.botName || null,
-      score: winner?.avgAbsPctError ?? null,
+      amountUsdc: payout.amountUsdc ?? WEEKLY_PRIZE_USDC,
+      wallet: payout.wallet || winner?.wallet || null,
+      botName: payout.botName || winner?.botName || null,
+      score: payout.score ?? winner?.avgAbsPctError ?? null,
       roundsEntered: winner?.roundsEntered ?? 0,
-      paid: payout.paid,
+      paid: Boolean(payout.paid || payout.status === "paid"),
+      payoutStatus: payout.status || (payout.paid ? "paid" : "unpaid"),
       paidAt: payout.paidAt,
+      pendingAt: payout.pendingAt || null,
+      txSignature: payout.txSignature || null,
+      explorer: payout.explorer || null,
+      paidUtcDay: payout.paidUtcDay || null,
+      error: payout.error || null,
       note: payout.note,
       eligible: Boolean(winner) && winner.avgAbsPctError != null,
     });
@@ -296,7 +311,21 @@ export function exportWinners({ roundId, weekId } = {}) {
     payoutNote,
     daily: dailyOut,
     weekly: weeklyOut,
-    owedUnpaid: [...dailyOut, ...weeklyOut].filter((x) => x.eligible && !x.paid),
+    owedUnpaid: [...dailyOut, ...weeklyOut].filter(
+      (x) => x.eligible && !x.paid && x.payoutStatus !== "skipped" && x.payoutStatus !== "outside_window",
+    ),
+    prizeWallet: resolvePrizeWalletAddress(),
+    autopayEnabled: autopayEnabled(),
+  };
+}
+
+export async function getPrizeStatus() {
+  const store = getStore();
+  const wallet = await getPrizeWalletPublicStatus();
+  return {
+    autopayEnabled: autopayEnabled(),
+    wallet,
+    recentPayouts: listPublicPayoutHistory(store, { limit: 40 }),
   };
 }
 
@@ -357,7 +386,14 @@ export async function runDueScoring() {
       );
     }
   }
-  return results;
+  let autopay = null;
+  try {
+    autopay = await processAutopay(store);
+  } catch (err) {
+    autopay = { ok: false, error: String(err?.message || err) };
+    console.error(JSON.stringify({ event: "arena_autopay_tick_error", error: String(err?.message || err) }));
+  }
+  return { scoring: results, autopay };
 }
 
 export function startArenaScorer({ intervalMs = 60_000 } = {}) {
@@ -390,4 +426,9 @@ export {
   verifyPredictionSignature,
   parseRoundId,
   currentEntryRound,
+  processAutopay,
+  listPublicPayoutHistory,
+  autopayEnabled,
+  getPrizeWalletPublicStatus,
+  resolvePrizeWalletAddress,
 };

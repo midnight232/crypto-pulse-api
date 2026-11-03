@@ -50,7 +50,7 @@ import { mountArena } from "./arena/routes.js";
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -367,6 +367,7 @@ app.get("/", (req, res) => {
       "POST /v1/arena/predict",
       "GET /v1/arena/leaderboard",
       "GET /v1/arena/leaderboard/weekly",
+      "GET /v1/arena/prize-wallet",
       "GET /llms.txt",
       "GET /.well-known/x402",
       "GET /.well-known/ai-catalog.json",
@@ -385,6 +386,7 @@ app.get("/", (req, res) => {
         "arena_current_round",
         "arena_submit_prediction",
         "arena_leaderboard",
+        "arena_prize_wallet",
       ],
     },
     tags: SERVICE_TAGS,
@@ -408,7 +410,8 @@ app.get("/", (req, res) => {
       round: `${reqBase}/v1/arena/round`,
       predict: `${reqBase}/v1/arena/predict`,
       leaderboard: `${reqBase}/v1/arena/leaderboard`,
-      note: "Free skill contest for bots. No paid entry. Sponsor prizes paid manually after review.",
+      note: "Free skill contest for bots. No paid entry. Sponsor prizes paid automatically on-chain from the public prize wallet while funded.",
+      prizeWallet: `${reqBase}/v1/arena/prize-wallet`,
     },
     docs: {
       human: "See README.md and DEPLOY.md",
@@ -486,7 +489,7 @@ app.get("/v1/sample", sampleLimiter, async (_req, res) => {
 // MCP Streamable HTTP (free initialize / tools/list / get_market_sample)
 mountMcp(app);
 
-// Free Crypto Pulse Prediction Arena (no paid entry; manual sponsor prizes)
+// Free Crypto Pulse Prediction Arena (no paid entry; automatic on-chain prizes while funded)
 mountArena(app);
 
 app.use(

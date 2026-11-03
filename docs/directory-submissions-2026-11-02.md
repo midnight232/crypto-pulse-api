@@ -1,6 +1,6 @@
 # Directory submissions — prepared 2026-11-02 (America/Chicago)
 
-**Status: DRAFT ONLY. Do not submit until Matt says yes to each one.**
+**Status: SUBMITTED 2026-11-02 (America/Chicago evening / Nov 3 UTC).** Matt approved free awesome-mcp-servers PR + free mcp.so issue. Paid mcp.so form not used.
 
 Already live / ours:
 - Official MCP Registry: `io.github.midnight232/crypto-pulse` (will publish **0.5.0** as our own listing update)
@@ -52,7 +52,7 @@ llms.txt: https://cryptopulseapi.com/llms.txt
 Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot
 ```
 
-**Action for Matt:** pick free issue vs paid form; if paid, approve the exact dollar amount first.
+**Submitted (free):** https://github.com/chatmcp/mcpso/issues/6642 — did not use paid form.
 
 ---
 
@@ -72,7 +72,7 @@ Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples
 - [midnight232/crypto-pulse-api](https://github.com/midnight232/crypto-pulse-api) 📇 ☁️ - Crypto market pulse for agents via x402 USDC on Solana (spots + Fear & Greed + Hyperliquid funding + DefiLlama + summary). Free sample + free BTC/ETH/SOL Prediction Arena. Remote MCP at https://cryptopulseapi.com/mcp
 ```
 
-**Action for Matt:** approve opening the PR as midnight232.
+**Submitted:** https://github.com/punkpeye/awesome-mcp-servers/pull/18412 (`check-submission` PASSED; welcome SKIPPED). Agent title opted in with 🤖🤖🤖.
 
 ---
 

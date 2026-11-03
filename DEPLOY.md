@@ -218,3 +218,13 @@ As of Oct 30, 2026 the live droplet settles through **Coinbase CDP** so resource
 
 - Scoring runs **in-process every 60 seconds** and scores any stored round whose `closeAt` (00:00 UTC) has passed. There is no separate cron at midnight; within about a minute after 00:00 UTC the round is scored when CoinGecko is reachable.
 - Daily backup (on the Droplet): `/etc/cron.daily/arena-backup` copies `/opt/crypto-pulse-api/data/arena.json` to `/opt/crypto-pulse-api/data/backups/` (7-day retention).
+
+
+## Prize wallet autopay (v0.6+)
+
+- Public address env: `ARENA_PRIZE_WALLET` (also shown on `/arena` and `/v1/arena/prize-wallet`).
+- Secret file: `/etc/arena-prize-wallet.json` mode `600`, owner `pulse:pulse` (service user). Never commit.
+- Kill switch: `ARENA_AUTOPAY=on|off` in `/etc/crypto-pulse.env`.
+- Program window: daily rounds 2026-11-03..2026-11-16; weekly weeks 2026-11-02 and 2026-11-09.
+- Caps: max $10 per payout; max $11 USDC total per UTC day.
+- Fund with **$34 USDC** + about **0.05 SOL** (fees + recipient ATA rent ~0.002 SOL when needed). Recipient ATA rent is paid by the prize wallet.

@@ -13,7 +13,7 @@ function emptyDb() {
     version: 1,
     updatedAt: null,
     rounds: {},
-    // Manual payout tracking only (server never sends funds).
+    // Payout tracking (automatic when ARENA_AUTOPAY=on and prize wallet funded).
     payouts: { daily: {}, weekly: {} },
   };
 }
@@ -194,22 +194,60 @@ export class ArenaStore {
   getPayout(type, id) {
     this._ensurePayouts();
     const bucket = type === "weekly" ? this.db.payouts.weekly : this.db.payouts.daily;
-    return bucket[id] || { paid: false, paidAt: null, note: null };
+    return bucket[id] || {
+      paid: false,
+      status: "unpaid",
+      paidAt: null,
+      pendingAt: null,
+      note: null,
+      txSignature: null,
+      explorer: null,
+      amountUsdc: null,
+      wallet: null,
+      botName: null,
+      score: null,
+      paidUtcDay: null,
+      error: null,
+    };
   }
 
-  setPayout(type, id, { paid, note } = {}) {
+  setPayout(type, id, fields = {}) {
     this._ensurePayouts();
     if (type !== "daily" && type !== "weekly") {
       throw Object.assign(new Error("type must be daily or weekly"), { code: "invalid_type" });
     }
     const bucket = type === "weekly" ? this.db.payouts.weekly : this.db.payouts.daily;
-    const prev = bucket[id] || { paid: false, paidAt: null, note: null };
-    const nextPaid = Boolean(paid);
-    bucket[id] = {
-      paid: nextPaid,
-      paidAt: nextPaid ? new Date().toISOString() : null,
-      note: note != null ? String(note).slice(0, 200) : prev.note,
+    const prev = bucket[id] || {
+      paid: false,
+      status: "unpaid",
+      paidAt: null,
+      pendingAt: null,
+      note: null,
+      txSignature: null,
+      explorer: null,
+      amountUsdc: null,
+      wallet: null,
+      botName: null,
+      score: null,
+      paidUtcDay: null,
+      error: null,
     };
+    const next = { ...prev };
+    for (const [k, v] of Object.entries(fields)) {
+      if (v !== undefined) next[k] = v;
+    }
+    if (typeof fields.paid === "boolean") {
+      next.paid = fields.paid;
+      if (fields.paid && !fields.paidAt) next.paidAt = new Date().toISOString();
+      if (fields.paid && !fields.status) next.status = "paid";
+      if (!fields.paid && fields.status === undefined && !fields.txSignature) {
+        // leave status as provided or unpaid
+        if (!next.status || next.status === "paid") next.status = "unpaid";
+      }
+    }
+    if (next.note != null) next.note = String(next.note).slice(0, 240);
+    if (next.error != null) next.error = String(next.error).slice(0, 120);
+    bucket[id] = next;
     this._persist();
     return bucket[id];
   }

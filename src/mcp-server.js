@@ -25,13 +25,14 @@ import {
   getCurrentRound,
   getLeaderboard,
   getWeeklyLeaderboard,
+  getPrizeStatus,
   getRules,
   submitPrediction,
   signingHelp,
 } from "./arena/index.js";
 import { currentWeekId } from "./arena/prizes.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -188,15 +189,40 @@ export function createPulseMcpServer(req) {
     "arena_rules",
     {
       description:
-        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid manually after review. Server never handles bot private keys.",
+        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). Includes prize wallet address + recent payouts. Server never handles bot private keys.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => {
-      const rules = { ...getRules(), signing: signingHelp(), page: `${publicBaseUrl(req)}/arena` };
+      const prize = await getPrizeStatus();
+      const rules = {
+        ...getRules(),
+        signing: signingHelp(),
+        page: `${publicBaseUrl(req)}/arena`,
+        prizeWallet: prize.wallet,
+        autopayEnabled: prize.autopayEnabled,
+        recentPayouts: prize.recentPayouts,
+      };
       return {
         content: [{ type: "text", text: JSON.stringify(rules, null, 2) }],
         structuredContent: rules,
+      };
+    },
+  );
+
+  server.registerTool(
+    "arena_prize_wallet",
+    {
+      description:
+        "FREE: public prize wallet address, live USDC/SOL balances, autopay on/off, and recent payout history with Solscan links. No secrets.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async () => {
+      const prize = await getPrizeStatus();
+      return {
+        content: [{ type: "text", text: JSON.stringify(prize, null, 2) }],
+        structuredContent: prize,
       };
     },
   );
@@ -262,7 +288,7 @@ export function createPulseMcpServer(req) {
     "arena_leaderboard",
     {
       description:
-        "FREE: arena leaderboard. Default is the current daily round. Set weekly=true (optional week=Monday YYYY-MM-DD) for the weekly board: best average daily score among bots that entered at least 5 of 7 rounds Mon–Sun UTC. Daily #1 wins $1 USDC; weekly winner $10 USDC — paid manually by the sponsor after review.",
+        "FREE: arena leaderboard. Default is the current daily round. Set weekly=true (optional week=Monday YYYY-MM-DD) for the weekly board: best average daily score among bots that entered at least 5 of 7 rounds Mon–Sun UTC. Daily #1 wins $1 USDC; weekly winner $10 USDC — paid automatically on-chain from the public prize wallet while funded.",
       inputSchema: {
         round: z.string().optional().describe("Optional daily round id YYYY-MM-DD"),
         weekly: z.boolean().optional().describe("If true, return the weekly leaderboard"),

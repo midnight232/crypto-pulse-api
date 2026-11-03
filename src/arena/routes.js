@@ -9,6 +9,7 @@ import {
   getCurrentRound,
   getLeaderboard,
   getWeeklyLeaderboard,
+  getPrizeStatus,
   getRules,
   getRoundById,
   setPayoutAdmin,
@@ -38,7 +39,7 @@ function adminAuthorized(req) {
 
 function toCsv(exportData) {
   const lines = [
-    "type,id,amountUsdc,wallet,botName,score,roundsEntered,paid,paidAt,eligible",
+    "type,id,amountUsdc,wallet,botName,score,roundsEntered,paid,payoutStatus,paidAt,pendingAt,txSignature,explorer,paidUtcDay,error,eligible,note",
   ];
   for (const r of [...(exportData.daily || []), ...(exportData.weekly || [])]) {
     lines.push(
@@ -51,8 +52,15 @@ function toCsv(exportData) {
         r.score ?? "",
         r.roundsEntered ?? "",
         r.paid,
+        r.payoutStatus || "",
         r.paidAt || "",
+        r.pendingAt || "",
+        r.txSignature || "",
+        r.explorer || "",
+        r.paidUtcDay || "",
+        JSON.stringify(r.error || ""),
         r.eligible,
+        JSON.stringify(r.note || ""),
       ].join(","),
     );
   }
@@ -71,17 +79,19 @@ export function mountArena(app) {
     },
   });
 
-  app.get("/arena", (req, res) => {
+  app.get("/arena", async (req, res) => {
     try {
       const current = getCurrentRound();
       const leaderboard = getLeaderboard(current.roundId);
       const weekly = getWeeklyLeaderboard(currentWeekId());
+      const prizeStatus = await getPrizeStatus();
       const html = renderArenaHtml({
         current,
         leaderboard,
         weekly,
         rules: getRules(),
         baseUrl: publicBaseUrl(req),
+        prizeStatus,
       });
       res.type("html").send(html);
     } catch (err) {
@@ -90,11 +100,23 @@ export function mountArena(app) {
     }
   });
 
-  app.get("/v1/arena/rules", (_req, res) => {
+  app.get("/v1/arena/rules", async (_req, res) => {
+    const prize = await getPrizeStatus();
     res.json({
       ...getRules(),
       signing: signingHelp(),
+      prizeWallet: prize.wallet,
+      autopayEnabled: prize.autopayEnabled,
+      recentPayouts: prize.recentPayouts,
     });
+  });
+
+  app.get("/v1/arena/prize-wallet", async (_req, res) => {
+    try {
+      res.json(await getPrizeStatus());
+    } catch (err) {
+      res.status(500).json({ error: "prize_status_failed", message: String(err?.message || err) });
+    }
   });
 
   app.get("/v1/arena/round", (req, res) => {

@@ -56,6 +56,7 @@ for (const need of [
   "arena_current_round",
   "arena_submit_prediction",
   "arena_leaderboard",
+  "arena_prize_wallet",
 ]) {
   if (!tools.includes(need)) {
     console.error("missing tool", need, listed.body);

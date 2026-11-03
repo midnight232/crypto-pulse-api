@@ -1,6 +1,6 @@
 {
   "name": "crypto-pulse-api",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "x402 paid crypto market pulse for AI agents: one call replaces four (spots, Fear & Greed, funding, DeFi) + summary; free sample + MCP",
   "type": "module",
   "main": "src/server.js",
@@ -17,7 +17,9 @@
     "mcp:stdio": "node mcp/stdio.js",
     "test:mcp": "node scripts/test-mcp.js",
     "test:summary": "node scripts/test-summary.js",
-    "arena:submit": "node scripts/arena-submit.js"
+    "arena:submit": "node scripts/arena-submit.js",
+    "test:autopay": "node scripts/test-autopay.js",
+    "test:arena": "node scripts/test-arena.js"
   },
   "engines": {
     "node": ">=20"
