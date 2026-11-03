@@ -42,13 +42,15 @@ import {
   buildLlmsTxt,
   buildWellKnownX402,
   buildOpenApi,
+  buildAiCatalog,
+  buildMcpServerCard,
 } from "./discovery.js";
 import { mountMcp } from "./mcp-server.js";
 import { mountArena } from "./arena/routes.js";
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.4.2";
+const VERSION = "0.5.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -367,6 +369,8 @@ app.get("/", (req, res) => {
       "GET /v1/arena/leaderboard/weekly",
       "GET /llms.txt",
       "GET /.well-known/x402",
+      "GET /.well-known/ai-catalog.json",
+      "GET /mcp/server-card",
       "GET /openapi.json",
     ],
     paid: ["GET /v1/pulse", "GET /v1/pulse/:asset", "GET /v1/spots"],
@@ -387,6 +391,8 @@ app.get("/", (req, res) => {
     discovery: {
       llmsTxt: `${reqBase}/llms.txt`,
       wellKnownX402: `${reqBase}/.well-known/x402`,
+      aiCatalog: `${reqBase}/.well-known/ai-catalog.json`,
+      mcpServerCard: `${reqBase}/mcp/server-card`,
       openapi: `${reqBase}/openapi.json`,
       sample: `${reqBase}/v1/sample`,
       mcp: `${reqBase}/mcp`,
@@ -434,6 +440,21 @@ app.get("/llms.txt", (req, res) => {
 
 app.get("/.well-known/x402", (req, res) => {
   res.json(buildWellKnownX402(req));
+});
+
+app.get("/.well-known/ai-catalog.json", (req, res) => {
+  res
+    .type("application/ai-catalog+json")
+    .set("Cache-Control", "public, max-age=3600")
+    .json(buildAiCatalog(req));
+});
+
+app.get("/mcp/server-card", (req, res) => {
+  res
+    .type("application/mcp-server-card+json")
+    .set("Cache-Control", "public, max-age=3600")
+    .set("Access-Control-Allow-Origin", "*")
+    .json(buildMcpServerCard(req));
 });
 
 app.get("/openapi.json", (req, res) => {

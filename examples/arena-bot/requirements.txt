@@ -1,0 +1,3 @@
+# Minimal deps for the Crypto Pulse Arena sample bot.
+PyNaCl>=1.5.0
+base58>=2.1.1

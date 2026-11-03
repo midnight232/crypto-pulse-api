@@ -230,3 +230,17 @@ OpenAPI: https://cryptopulseapi.com/openapi.json
 - Public repo https://github.com/midnight232/crypto-pulse-api (MIT, secrets gitignored + scanned)
 - MCP registry namespace set to `io.github.midnight232/crypto-pulse`
 - Submission drafts updated below; **nothing submitted to directories yet**
+
+
+---
+
+## Arena discoverability pass — 2026-11-02 (America/Chicago)
+
+Shipped in v0.5.0:
+- Richer Arena section in `/llms.txt`
+- `GET /.well-known/ai-catalog.json` + `GET /mcp/server-card` (SEP-2127 style)
+- Sample bot at `examples/arena-bot/`
+- OpenAPI paths for Arena + discovery
+- MCP Registry version bump to 0.5.0 (our listing)
+
+Directory drafts (not submitted): see [docs/directory-submissions-2026-11-02.md](./docs/directory-submissions-2026-11-02.md) for PulseMCP (paused → registry), mcp.so, and punkpeye/awesome-mcp-servers.

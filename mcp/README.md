@@ -17,6 +17,10 @@ Transport: **Streamable HTTP** (stateless, JSON responses).
 | `get_market_sample` | Free | Returns stale (≤15 min) full pulse JSON with `summary` + `signals` |
 | `get_market_pulse` | $0.02 USDC | Returns x402 payment requirements + `GET /v1/pulse` URL (pay over HTTP) |
 | `get_market_spots` | $0.005 USDC | Same pattern for `/v1/spots` |
+| `arena_rules` | Free | Prediction Arena rules + signing format |
+| `arena_current_round` | Free | Current round timing / whether entries are open |
+| `arena_submit_prediction` | Free | Submit a pre-signed BTC/ETH/SOL prediction |
+| `arena_leaderboard` | Free | Daily or weekly leaderboard |
 
 Paid tools intentionally return payment requirements rather than settling inside MCP: current `@x402` / community MCP payment helpers primarily target Base/EVM, while this API settles **USDC on Solana**. Agents pay the HTTP endpoint with standard x402, then use the JSON.
 

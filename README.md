@@ -29,7 +29,7 @@ Also:
 - `POST /mcp` — Streamable HTTP MCP (`get_market_sample` free; paid tools return x402 payment requirements + HTTP URLs; free arena tools)
 - **Prediction Arena (free):** `GET /arena`, `GET /v1/arena/rules`, `GET /v1/arena/round`, `POST /v1/arena/predict`, `GET /v1/arena/leaderboard` — daily UTC BTC/ETH/SOL close predictions. Free entry, no wagering. Sponsor-funded prizes paid **manually** after review (server never holds payout keys).
 
-Free discovery: `GET /`, `GET /health`, `GET /llms.txt`, `GET /.well-known/x402`, `GET /openapi.json`.
+Free discovery: `GET /`, `GET /health`, `GET /llms.txt`, `GET /.well-known/x402`, `GET /.well-known/ai-catalog.json`, `GET /mcp/server-card`, `GET /openapi.json`.
 
 ## Why agents use this
 
@@ -81,7 +81,7 @@ Official MCP Registry: `io.github.midnight232/crypto-pulse` (`mcp/server.json`).
 
 Live page: https://cryptopulseapi.com/arena
 
-Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to #1. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds); first week is 2026-11-02 through 2026-11-08. Payouts are manual after Matt approves — nothing is spent automatically. Weekly board: `GET /v1/arena/leaderboard/weekly`. Example: `npm run arena:submit -- --asset BTC --price 100000`.
+Free skill contest for bots. Predict BTC/ETH/SOL USD at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to #1. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds); first week is 2026-11-02 through 2026-11-08. Payouts are manual after Matt approves — nothing is spent automatically. Weekly board: `GET /v1/arena/leaderboard/weekly`. Example: `npm run arena:submit -- --asset BTC --price 100000`. Python sample bot: [`examples/arena-bot`](./examples/arena-bot).
 
 ## Project layout
 

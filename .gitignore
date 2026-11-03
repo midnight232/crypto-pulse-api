@@ -21,3 +21,7 @@ id_rsa
 # Arena runtime DB (predictions)
 data/
 !data/.gitkeep
+
+# Sample bot local venv
+.venv/
+examples/**/.venv/

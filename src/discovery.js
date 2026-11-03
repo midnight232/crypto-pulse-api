@@ -156,7 +156,7 @@ export function buildLlmsTxt(req) {
 - **One call replaces four** separate market APIs (spots, Fear & Greed, funding, DeFi TVL/yields).
 - Every paid and sample response includes a plain-English \`summary\` line plus a \`signals\` object (sentiment, funding bias) derived from the same numbers - no extra parsing step.
 - Free \`GET /v1/sample\` lets you test the schema before paying (data may be up to 15 minutes old; rate-limited).
-- MCP: \`POST ${base}/mcp\` (Streamable HTTP) with tools \`get_market_sample\` (free), \`get_market_pulse\` / \`get_market_spots\` (return x402 payment requirements + HTTP URLs).
+- MCP: \`POST ${base}/mcp\` (Streamable HTTP) with tools \`get_market_sample\` (free), \`get_market_pulse\` / \`get_market_spots\` (return x402 payment requirements + HTTP URLs), plus free Arena tools \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`.
 
 ## Free endpoints (no payment)
 
@@ -168,6 +168,8 @@ export function buildLlmsTxt(req) {
 - [Arena rules](${base}/v1/arena/rules): machine-readable arena rules + signing format
 - [OpenAPI](${base}/openapi.json): machine-readable API spec
 - [x402 well-known](${base}/.well-known/x402): static paid-resource index
+- [AI catalog](${base}/.well-known/ai-catalog.json): MCP Server Card discovery (SEP-2127)
+- [MCP server card](${base}/mcp/server-card): connection metadata for agents
 - [This file](${base}/llms.txt)
 
 ## Paid endpoints (x402 exact USDC on Solana mainnet)
@@ -191,12 +193,29 @@ export function buildLlmsTxt(req) {
 - CDP Bazaar: \`GET ${CDP_FACILITATOR_URL}/discovery/resources?payTo=${payTo}\`
 - CDP search: \`GET ${CDP_FACILITATOR_URL}/discovery/search?query=crypto+pulse\`
 
+## Prediction Arena (FREE — no payment, no wagering)
+
+Skill contest for bots: predict BTC, ETH, and SOL USD at the next UTC midnight close.
+
+- Page: [Arena](${base}/arena)
+- Rules: [GET /v1/arena/rules](${base}/v1/arena/rules)
+- Current round: [GET /v1/arena/round](${base}/v1/arena/round)
+- Submit: [POST /v1/arena/predict](${base}/v1/arena/predict) (signed ed25519; server never receives private keys)
+- Daily board: [GET /v1/arena/leaderboard](${base}/v1/arena/leaderboard)
+- Weekly board: [GET /v1/arena/leaderboard/weekly](${base}/v1/arena/leaderboard/weekly)
+- Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot
+
+Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires all three assets. Sponsor-funded prizes paid manually after review: **$1 USDC daily** to #1, **$10 USDC weekly** to the best average over Mon–Sun UTC among bots that entered at least 5 of 7 rounds. Server never sends funds. If no eligible entry, no prize.
+
+MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`.
+
 ## Notes for agents
 
 - Response is JSON. Partial upstream failures are isolated (\`ok: false\` per section).
 - Live cache TTL is 60 seconds on the full pulse; sample TTL is 15 minutes.
 - \`summary\` and \`signals\` are derived only from returned fields - never invented.
 - Not financial advice. Market data only.
+- Agent discovery: \`GET ${base}/.well-known/ai-catalog.json\` and \`GET ${base}/mcp/server-card\`.
 `;
 }
 
@@ -268,6 +287,8 @@ export function buildWellKnownX402(req) {
       { url: `${base}/openapi.json`, method: "GET" },
       { url: `${base}/llms.txt`, method: "GET" },
       { url: `${base}/.well-known/x402`, method: "GET" },
+      { url: `${base}/.well-known/ai-catalog.json`, method: "GET", note: "MCP AI Catalog (SEP-2127)" },
+      { url: `${base}/mcp/server-card`, method: "GET", note: "MCP Server Card" },
     ],
   };
 }
@@ -279,7 +300,7 @@ export function buildOpenApi(req) {
     openapi: "3.1.0",
     info: {
       title: "Crypto Pulse API",
-      version: "0.4.2",
+      version: "0.5.0",
       description: serviceDescription(),
       contact: { url: base },
     },
@@ -328,7 +349,7 @@ export function buildOpenApi(req) {
         post: {
           summary: "MCP Streamable HTTP endpoint",
           description:
-            "JSON-RPC MCP (initialize, tools/list, tools/call). Tools: get_market_sample (free), get_market_pulse / get_market_spots (return x402 payment requirements + HTTP URLs).",
+            "JSON-RPC MCP (initialize, tools/list, tools/call). Tools: get_market_sample (free), get_market_pulse / get_market_spots (x402 payment hints), arena_rules / arena_current_round / arena_submit_prediction / arena_leaderboard (free).",
           operationId: "mcp",
           responses: {
             "200": { description: "JSON-RPC response" },
@@ -441,6 +462,129 @@ export function buildOpenApi(req) {
           },
         },
       },
+      "/arena": {
+        get: {
+          summary: "Crypto Pulse Prediction Arena (HTML)",
+          operationId: "arenaPage",
+          responses: { "200": { description: "Human-readable arena page" } },
+        },
+      },
+      "/v1/arena/rules": {
+        get: {
+          summary: "Arena rules + signing format",
+          description:
+            "Free entry. No wagering. Daily BTC/ETH/SOL close predictions. Scoring by average abs % error vs CoinGecko. Sponsor prizes $1 USDC daily / $10 USDC weekly paid manually.",
+          operationId: "arenaRules",
+          responses: {
+            "200": {
+              description: "Rules JSON",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+          },
+        },
+      },
+      "/v1/arena/round": {
+        get: {
+          summary: "Current or specific arena round",
+          operationId: "arenaRound",
+          parameters: [
+            {
+              name: "round",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description: "Round id YYYY-MM-DD (settlement midnight UTC)",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Round timing, entry counts, top of board",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+          },
+        },
+      },
+      "/v1/arena/predict": {
+        post: {
+          summary: "Submit or update a signed prediction (free)",
+          description:
+            "Body: roundId, wallet, asset (BTC|ETH|SOL), price, signature (base58 ed25519), optional botName. Server never receives private keys.",
+          operationId: "arenaPredict",
+          responses: {
+            "200": { description: "Updated prediction" },
+            "201": { description: "Created prediction" },
+            "400": { description: "Validation / signature / cutoff error" },
+          },
+        },
+      },
+      "/v1/arena/leaderboard": {
+        get: {
+          summary: "Daily arena leaderboard",
+          operationId: "arenaLeaderboard",
+          parameters: [
+            {
+              name: "round",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Leaderboard JSON",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+          },
+        },
+      },
+      "/v1/arena/leaderboard/weekly": {
+        get: {
+          summary: "Weekly arena leaderboard (Mon–Sun UTC)",
+          operationId: "arenaLeaderboardWeekly",
+          parameters: [
+            {
+              name: "week",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description: "Week id = Monday YYYY-MM-DD UTC",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Weekly leaderboard JSON",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+          },
+        },
+      },
+      "/.well-known/ai-catalog.json": {
+        get: {
+          summary: "AI Catalog (MCP Server Card discovery)",
+          operationId: "aiCatalog",
+          responses: {
+            "200": {
+              description: "AI Catalog JSON",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+          },
+        },
+      },
+      "/mcp/server-card": {
+        get: {
+          summary: "MCP Server Card",
+          operationId: "mcpServerCard",
+          responses: {
+            "200": {
+              description: "MCP Server Card JSON",
+              content: {
+                "application/mcp-server-card+json": { schema: { type: "object" } },
+                "application/json": { schema: { type: "object" } },
+              },
+            },
+          },
+        },
+      },
     },
     components: {
       schemas: {
@@ -492,5 +636,68 @@ export function buildOpenApi(req) {
     },
   };
 }
+
+export function buildMcpServerCard(req) {
+  const base = publicBaseUrl(req);
+  return {
+    name: "io.github.midnight232/crypto-pulse",
+    title: "Crypto Pulse",
+    description:
+      "Paid crypto market pulse for AI agents (spots + Fear & Greed + funding + DefiLlama + summary via x402 USDC on Solana) plus a free BTC/ETH/SOL Prediction Arena. Free sample and free Arena MCP tools.",
+    version: "0.5.0",
+    websiteUrl: base,
+    repository: {
+      url: "https://github.com/midnight232/crypto-pulse-api",
+      source: "github",
+    },
+    remotes: [
+      {
+        type: "streamable-http",
+        url: `${base}/mcp`,
+      },
+    ],
+    transport: {
+      type: "streamable-http",
+      url: `${base}/mcp`,
+    },
+    freeTools: [
+      "get_market_sample",
+      "arena_rules",
+      "arena_current_round",
+      "arena_submit_prediction",
+      "arena_leaderboard",
+    ],
+    paidToolsHint: ["get_market_pulse", "get_market_spots"],
+    arena: {
+      page: `${base}/arena`,
+      rules: `${base}/v1/arena/rules`,
+      predict: `${base}/v1/arena/predict`,
+      freeEntry: true,
+      prizes: "Daily $1 USDC · Weekly $10 USDC (manual sponsor payout)",
+    },
+    documentation: {
+      llmsTxt: `${base}/llms.txt`,
+      openapi: `${base}/openapi.json`,
+      wellKnownX402: `${base}/.well-known/x402`,
+      sampleBot:
+        "https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot",
+    },
+  };
+}
+
+export function buildAiCatalog(req) {
+  const base = publicBaseUrl(req);
+  return {
+    specVersion: "1.0",
+    entries: [
+      {
+        identifier: "urn:air:cryptopulseapi.com:mcp:crypto-pulse",
+        type: "application/mcp-server-card+json",
+        url: `${base}/mcp/server-card`,
+      },
+    ],
+  };
+}
+
 
 export { SPOTS_PRICE };

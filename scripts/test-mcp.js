@@ -48,7 +48,15 @@ console.log("serverInfo", init.body.result?.serverInfo);
 const listed = await rpc("tools/list", {}, 2);
 const tools = listed.body.result?.tools?.map((t) => t.name) || [];
 console.log("tools", tools);
-for (const need of ["get_market_sample", "get_market_pulse", "get_market_spots"]) {
+for (const need of [
+  "get_market_sample",
+  "get_market_pulse",
+  "get_market_spots",
+  "arena_rules",
+  "arena_current_round",
+  "arena_submit_prediction",
+  "arena_leaderboard",
+]) {
   if (!tools.includes(need)) {
     console.error("missing tool", need, listed.body);
     process.exit(1);
