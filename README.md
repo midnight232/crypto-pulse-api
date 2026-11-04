@@ -1,5 +1,7 @@
 # crypto-pulse-api (Solana x402)
 
+[![M8ven Score](https://m8ven.ai/badge/mcp/midnight232-crypto-pulse-api-1gvesw?v=966577f6c7aa2c0def4be1a0828e3252)](https://m8ven.ai/mcp/midnight232-crypto-pulse-api-1gvesw?s=readme)
+
 Pay-per-request **crypto market pulse** for AI agents. **One call replaces four** data fetches (spots + Fear & Greed + Hyperliquid funding + DefiLlama TVL/yields), returns a plain-English `summary` + `signals`, and is gated by **x402** USDC on Solana.
 
 > Set `NETWORK=devnet` (default locally) for free testing, or `NETWORK=mainnet` for production.
