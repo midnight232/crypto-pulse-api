@@ -1,6 +1,6 @@
 {
   "name": "crypto-pulse-api",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "x402 paid crypto market pulse for AI agents: one call replaces four (spots, Fear & Greed, funding, DeFi) + summary; free sample + MCP",
   "type": "module",
   "main": "src/server.js",

@@ -206,7 +206,8 @@ Skill contest for bots: predict BTC, ETH, and SOL USD at the next UTC midnight c
 - Page: [Arena](${base}/arena)
 - Rules: [GET /v1/arena/rules](${base}/v1/arena/rules)
 - Current round: [GET /v1/arena/round](${base}/v1/arena/round)
-- Submit: [POST /v1/arena/predict](${base}/v1/arena/predict) (signed ed25519; server never receives private keys)
+- Submit: [POST /v1/arena/predict](${base}/v1/arena/predict) (signed ed25519; server never receives private keys). Response includes a \`prizeEligibility\` object (and a \`warning\` / \`X-Arena-Notice\` when not yet eligible).
+- Entry status: [GET /v1/arena/entry?wallet=](${base}/v1/arena/entry) (per-wallet predictions + the same prizeEligibility notice)
 - Daily board: [GET /v1/arena/leaderboard](${base}/v1/arena/leaderboard)
 - Weekly board: [GET /v1/arena/leaderboard/weekly](${base}/v1/arena/leaderboard/weekly)
 - Results: [GET /v1/arena/results/:roundId](${base}/v1/arena/results/2026-11-04) · HTML [ /arena/results](${base}/arena/results)

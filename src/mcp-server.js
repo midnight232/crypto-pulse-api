@@ -31,11 +31,12 @@ import {
   getArenaHistory,
   submitPrediction,
   signingHelp,
+  decorateWithPrizeEligibility,
 } from "./arena/index.js";
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
 
-const VERSION = "0.7.0";
+const VERSION = "0.8.1";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -272,13 +273,16 @@ export function createPulseMcpServer(req) {
           structuredContent: result,
         };
       } catch (err) {
-        const fail = {
-          ok: false,
-          error: err.code || "predict_failed",
-          message: err.message,
-          lifecycle: err.lifecycle,
-          cutoffAt: err.cutoffAt,
-        };
+        const fail = decorateWithPrizeEligibility(
+          {
+            ok: false,
+            error: err.code || "predict_failed",
+            message: err.message,
+            lifecycle: err.lifecycle,
+            cutoffAt: err.cutoffAt,
+          },
+          { wallet: args?.wallet, botName: args?.botName, roundId: args?.roundId },
+        );
         return {
           content: [{ type: "text", text: JSON.stringify(fail, null, 2) }],
           structuredContent: fail,

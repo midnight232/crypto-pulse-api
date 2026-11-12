@@ -20,6 +20,9 @@ import {
   signingHelp,
   startArenaScorer,
   submitPrediction,
+  getArenaEntry,
+  decorateWithPrizeEligibility,
+  applyPrizeEligibilityHeaders,
 } from "./index.js";
 import { currentWeekId } from "./prizes.js";
 import { renderArenaHtml } from "./page.js";
@@ -161,16 +164,41 @@ export function mountArena(app) {
   });
 
   app.post("/v1/arena/predict", predictLimiter, (req, res) => {
+    const body = req.body || {};
+    const eligCtx = {
+      wallet: body.wallet,
+      botName: body.botName,
+      roundId: body.roundId,
+      req,
+    };
     try {
-      const result = submitPrediction(req.body || {});
+      const result = submitPrediction(body);
+      applyPrizeEligibilityHeaders(res, result);
       res.status(result.created ? 201 : 200).json(result);
     } catch (err) {
-      res.status(err.status || 400).json({
-        error: err.code || "predict_failed",
-        message: err.message,
-        lifecycle: err.lifecycle,
-        cutoffAt: err.cutoffAt,
-      });
+      const payload = decorateWithPrizeEligibility(
+        {
+          error: err.code || "predict_failed",
+          message: err.message,
+          lifecycle: err.lifecycle,
+          cutoffAt: err.cutoffAt,
+        },
+        eligCtx,
+      );
+      applyPrizeEligibilityHeaders(res, payload);
+      res.status(err.status || 400).json(payload);
+    }
+  });
+
+  app.get("/v1/arena/entry", (req, res) => {
+    try {
+      const wallet = typeof req.query.wallet === "string" ? req.query.wallet.trim() : "";
+      const roundId = typeof req.query.round === "string" ? req.query.round.trim() : "";
+      const payload = getArenaEntry({ wallet, roundId: roundId || undefined, req });
+      applyPrizeEligibilityHeaders(res, payload);
+      res.json(payload);
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.code || "bad_request", message: err.message });
     }
   });
 

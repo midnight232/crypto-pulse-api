@@ -20,6 +20,7 @@ import {
   PULSE_RULE_FIRST_ROUND,
   _setPulseUsageStoreForTests,
 } from "../src/pulse-usage.js";
+import { buildPrizeEligibility, decorateWithPrizeEligibility, prizeEligibilityWarning, getArenaEntry, _setStoreForTests } from "../src/arena/index.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg || "assert failed");
@@ -196,5 +197,63 @@ const imported = usage.ingestFreePulseFile(freePath);
 assert(imported.imported >= 1, "backfill imported");
 assert(usage.matches("2026-11-12", wBack), "backfilled client id counts");
 assert(pulseQualification({ wallet: wBack, roundId: "2026-11-13", usage }).qualified === true, "backfill qualifies");
+
+
+// --- prizeEligibility notice object ---
+const noticeStore = new ArenaStore(path.join(tmp, "arena-notice.json"));
+_setStoreForTests(noticeStore);
+const wNotice = wallet();
+const pe = buildPrizeEligibility({
+  wallet: wNotice,
+  botName: "NoticeBot",
+  roundId: "2026-11-13",
+  baseUrl: "https://cryptopulseapi.com",
+});
+assert(pe.eligible === false, "notice ineligible without pulse");
+assert(pe.applicable === true, "rule applies");
+assert(typeof pe.requirement === "string" && pe.requirement.includes("/v1/pulse"), "requirement");
+assert(pe.howTo === `GET https://cryptopulseapi.com/v1/pulse with headers X-Crypto-Pulse-Free: 1 and X-Pulse-Client-Id: ${wNotice}`, "howTo uses payout wallet");
+assert(pe.deadline === "2026-11-13T00:00:00.000Z", "deadline is closeAt");
+assert(pe.docs === "https://cryptopulseapi.com/v1/arena/rules", "docs url");
+const decorated = decorateWithPrizeEligibility({ ok: true, created: true }, {
+  wallet: wNotice,
+  botName: "NoticeBot",
+  roundId: "2026-11-13",
+  baseUrl: "https://cryptopulseapi.com",
+});
+assert(decorated.ok === true && decorated.created === true, "existing fields preserved");
+assert(decorated.prizeEligibility.eligible === false, "decorated ineligible");
+assert(typeof decorated.warning === "string" && decorated.warning.includes("Not prize-eligible"), "warning on ineligible");
+
+usage.record({ day: "2026-11-12", clientId: wNotice, kind: "free" });
+const peYes = buildPrizeEligibility({
+  wallet: wNotice,
+  botName: "NoticeBot",
+  roundId: "2026-11-13",
+  baseUrl: "https://cryptopulseapi.com",
+});
+assert(peYes.eligible === true, "eligible after pulse");
+assert(!prizeEligibilityWarning(peYes), "no warning when eligible");
+
+const peHouse = buildPrizeEligibility({
+  wallet: wHouse,
+  botName: "official-baseline",
+  roundId: "2026-11-13",
+  baseUrl: "https://cryptopulseapi.com",
+});
+assert(peHouse.eligible === false && peHouse.applicable === false, "house notice not applicable");
+assert(peHouse.requirement.toLowerCase().includes("not applicable"), "house requirement");
+const decHouse = decorateWithPrizeEligibility({ ok: true }, {
+  wallet: wHouse,
+  botName: "official-baseline",
+  roundId: "2026-11-13",
+});
+assert(!decHouse.warning, "house responses have no warning");
+
+fillRound(noticeStore, "2026-11-13", [{ wallet: wNotice, botName: "NoticeBot", error: 0.2 }]);
+const entry = getArenaEntry({ wallet: wNotice, roundId: "2026-11-13", baseUrl: "https://cryptopulseapi.com" });
+assert(entry.wallet === wNotice && entry.complete === true, "entry status");
+assert(entry.prizeEligibility.eligible === true, "entry reflects pulse");
+assert(!entry.warning, "no warning on eligible entry");
 
 console.log("ALL_PULSE_ELIGIBILITY_TESTS_PASSED");

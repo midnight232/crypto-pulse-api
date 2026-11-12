@@ -60,11 +60,28 @@ const kp = keypair();
 const wallet = base58.encode(kp.publicKey);
 const preds = signAll(kp, round.roundId, { BTC: 100000.5, ETH: 3500, SOL: 180.25 });
 
+let last = null;
 for (const p of preds) {
   const r = submitPrediction(p);
   if (!r.ok) throw new Error("submit failed");
+  last = r;
 }
-console.log("submit_ok", wallet.slice(0, 8) + "…");
+if (!last.prizeEligibility || typeof last.prizeEligibility.eligible !== "boolean") {
+  throw new Error("missing prizeEligibility.eligible");
+}
+if (!last.prizeEligibility.howTo || !last.prizeEligibility.howTo.includes("/v1/pulse")) {
+  throw new Error("missing prizeEligibility.howTo");
+}
+if (!last.prizeEligibility.deadline || !last.prizeEligibility.docs) {
+  throw new Error("missing prizeEligibility deadline/docs");
+}
+if (last.prizeEligibility.eligible === false && typeof last.warning !== "string") {
+  throw new Error("expected warning when not prize-eligible");
+}
+if (!last.prediction || last.prediction.wallet !== wallet) {
+  throw new Error("existing prediction fields missing");
+}
+console.log("submit_ok", wallet.slice(0, 8) + "…", "prizeEligibility", last.prizeEligibility.eligible);
 
 // Bad signature
 let badOk = false;

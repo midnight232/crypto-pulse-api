@@ -39,6 +39,7 @@ import {
   houseBotsEnabled,
 } from "./house.js";
 import { describePulseEligibilityRule, NO_PULSE_REASON, pulseQualification } from "../pulse-usage.js";
+import { publicBaseUrl } from "../discovery.js";
 
 let storeSingleton = null;
 let scorerTimer = null;
@@ -196,6 +197,124 @@ export function signingHelp(example = {}) {
 /**
  * Submit or update a prediction. Throws errors with .code and .status.
  */
+
+/**
+ * Machine-readable prize-eligibility notice for predict / entry responses.
+ * Existing fields stay unchanged; this object is additive.
+ *
+ * House bots: applicable=false, no warning (notice is not applicable).
+ */
+export function buildPrizeEligibility({ wallet, botName, roundId, baseUrl, req } = {}) {
+  const base = String(baseUrl || publicBaseUrl(req) || "https://cryptopulseapi.com").replace(/\/$/, "");
+  let meta;
+  try {
+    meta = parseRoundId(roundId || currentEntryRound().roundId);
+  } catch {
+    meta = currentEntryRound();
+  }
+  const w = String(wallet || "").trim();
+  const house = isHouseEntrant({ wallet: w, botName });
+  const pulse = pulseQualification({ wallet: w, roundId: meta.roundId });
+  const docs = `${base}/v1/arena/rules`;
+  const clientId = w || "<payout wallet>";
+  const howTo =
+    `GET ${base}/v1/pulse with headers X-Crypto-Pulse-Free: 1 and X-Pulse-Client-Id: ${clientId}`;
+  const deadline = meta.closeAt;
+  if (house) {
+    return {
+      eligible: false,
+      applicable: false,
+      requirement:
+        "Official house bots (official-*) are never prize-eligible; this /v1/pulse notice is not applicable.",
+      howTo,
+      deadline,
+      docs,
+    };
+  }
+  const applies = pulse.applies;
+  const eligible = Boolean(pulse.qualified);
+  const requirement = applies
+    ? "To be prize-eligible for this daily round, make at least one GET /v1/pulse call during the qualifying UTC day (the 24 hours ending at closeAt), with X-Pulse-Client-Id or the payer wallet equal to your payout wallet."
+    : "The /v1/pulse prize-eligibility rule does not apply to this already-closed or pre-enforcement round.";
+  return {
+    eligible,
+    applicable: applies,
+    requirement,
+    howTo,
+    deadline,
+    docs,
+  };
+}
+
+export function prizeEligibilityWarning(info) {
+  if (!info || info.applicable === false || info.eligible) return null;
+  return (
+    `Not prize-eligible: no /v1/pulse call this qualifying UTC day. ${info.howTo} before ${info.deadline}. See ${info.docs}`
+  );
+}
+
+/** Additive: attaches prizeEligibility (and warning when not eligible) without removing existing fields. */
+export function decorateWithPrizeEligibility(body, ctx = {}) {
+  const prizeEligibility = buildPrizeEligibility(ctx);
+  const warning = prizeEligibilityWarning(prizeEligibility);
+  const out = { ...body, prizeEligibility };
+  if (warning) out.warning = warning;
+  return out;
+}
+
+export function applyPrizeEligibilityHeaders(res, payload) {
+  if (!res || !payload?.warning) return;
+  const notice = String(payload.warning).replace(/[\r\n]+/g, " ").slice(0, 500);
+  res.set("X-Arena-Notice", notice);
+  const safe = notice.replace(/["\\]/g, "'");
+  res.set("Warning", `299 crypto-pulse-api "${safe}"`);
+}
+
+export function getArenaEntry({ wallet, roundId, botName, baseUrl, req } = {}) {
+  const w = String(wallet || "").trim();
+  if (!w) {
+    throw Object.assign(new Error("wallet required"), { code: "missing_wallet", status: 400 });
+  }
+  const store = getStore();
+  let meta;
+  try {
+    meta = parseRoundId(roundId || currentEntryRound().roundId);
+  } catch {
+    throw Object.assign(new Error("invalid roundId"), { code: "invalid_round", status: 400 });
+  }
+  store.ensureRound(meta);
+  const round = store.getRound(meta.roundId);
+  const preds = (round.predictions || []).filter((p) => p.wallet === w);
+  const displayName = botName || preds[0]?.botName || null;
+  const house = preds.some((p) => p.house) || isHouseEntrant({ wallet: w, botName: displayName });
+  const assetsPresent = ARENA_ASSETS.filter((a) => preds.some((p) => p.asset === a));
+  const payload = {
+    roundId: meta.roundId,
+    openAt: meta.openAt,
+    cutoffAt: meta.cutoffAt,
+    closeAt: meta.closeAt,
+    status: round.status === "scored" ? "scored" : roundStatusAt(meta),
+    wallet: w,
+    botName: displayName,
+    house,
+    assetsPresent,
+    complete: ARENA_ASSETS.every((a) => assetsPresent.includes(a)),
+    predictions: preds.map((p) => ({
+      asset: p.asset,
+      price: p.price,
+      submittedAt: p.submittedAt,
+      updatedAt: p.updatedAt,
+    })),
+  };
+  return decorateWithPrizeEligibility(payload, {
+    wallet: w,
+    botName: displayName,
+    roundId: meta.roundId,
+    baseUrl,
+    req,
+  });
+}
+
 export function submitPrediction(body) {
   const store = getStore();
   const roundId = String(body.roundId || "").trim();
@@ -264,27 +383,30 @@ export function submitPrediction(body) {
     house,
   });
 
-  return {
-    ok: true,
-    created,
-    updated: !created,
-    roundId,
-    cutoffAt: meta.cutoffAt,
-    closeAt: meta.closeAt,
-    prediction: {
-      wallet: prediction.wallet,
-      botName: prediction.botName,
-      asset: prediction.asset,
-      price: prediction.price,
-      house: Boolean(prediction.house || house),
-      pulseQualified: pulse.qualified,
-      prizeEligible,
-      eligible: prizeEligible,
-      ineligibleReason,
-      submittedAt: prediction.submittedAt,
-      updatedAt: prediction.updatedAt,
+  return decorateWithPrizeEligibility(
+    {
+      ok: true,
+      created,
+      updated: !created,
+      roundId,
+      cutoffAt: meta.cutoffAt,
+      closeAt: meta.closeAt,
+      prediction: {
+        wallet: prediction.wallet,
+        botName: prediction.botName,
+        asset: prediction.asset,
+        price: prediction.price,
+        house: Boolean(prediction.house || house),
+        pulseQualified: pulse.qualified,
+        prizeEligible,
+        eligible: prizeEligible,
+        ineligibleReason,
+        submittedAt: prediction.submittedAt,
+        updatedAt: prediction.updatedAt,
+      },
     },
-  };
+    { wallet: prediction.wallet, botName: prediction.botName, roundId },
+  );
 }
 
 export function exportWinners({ roundId, weekId } = {}) {
