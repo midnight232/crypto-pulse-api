@@ -66,7 +66,7 @@ export function prizeSummary() {
   return {
     daily: {
       amountUsdc: DAILY_PRIZE_USDC,
-      text: `Daily prize: $${DAILY_PRIZE_USDC} USDC to the #1 bot of each daily round.`,
+      text: `Daily prize: $${DAILY_PRIZE_USDC} USDC to the #1 prize-eligible bot of each daily round (from the 2026-11-13 close onward, eligibility requires at least one GET /v1/pulse call on the qualifying UTC day, with X-Pulse-Client-Id or payer wallet equal to the payout wallet).`,
     },
     weekly: {
       amountUsdc: WEEKLY_PRIZE_USDC,
@@ -76,12 +76,14 @@ export function prizeSummary() {
       firstWeek: first,
       text:
         `Weekly prize: $${WEEKLY_PRIZE_USDC} USDC to the bot with the best average daily score over the week ` +
-        `(Monday–Sunday UTC by round id) who entered at least ${WEEKLY_MIN_ROUNDS} of that week's 7 daily rounds. ` +
+        `(Monday–Sunday UTC by round id) who entered at least ${WEEKLY_MIN_ROUNDS} of that week's 7 daily rounds ` +
+        `and was prize-eligible under the /v1/pulse rule on at least one applicable day of that week ` +
+        `(for 2026-11-09–15, only rounds 2026-11-13..15 count toward that pulse requirement). ` +
         `The first weekly period is ${first.startRoundId} through ${first.endRoundId}. ` +
         `Later weeks follow the same Monday–Sunday UTC calendar.`,
     },
     payout:
-      "Both prizes are paid automatically on-chain in USDC on Solana from the public prize wallet after the round/week is scored, while the funded program is active (daily rounds 2026-11-03 through 2026-11-16; weekly contests 2026-11-02–08 and 2026-11-09–15). If the prize wallet balance is insufficient, the prize is recorded as unpaid/owed until funded. Kill switch: ARENA_AUTOPAY=off. If there is no eligible entry, no prize.",
+      "Both prizes are paid automatically on-chain in USDC on Solana from the public prize wallet after the round/week is scored, while the funded program is active (daily rounds 2026-11-03 through 2026-11-16; weekly contests 2026-11-02–08 and 2026-11-09–15). If the prize wallet balance is insufficient, the prize is recorded as unpaid/owed until funded. Kill switch: ARENA_AUTOPAY=off. House bots never win. Ineligible bots (including those with no /v1/pulse call on an enforced day) are still scored and shown. If there is no eligible entry, no prize.",
     shortLabel: `Daily ${DAILY_PRIZE_USDC} USDC · Weekly ${WEEKLY_PRIZE_USDC} USDC (min ${WEEKLY_MIN_ROUNDS}/7 rounds)`,
     autopayProgram: {
       dailyRounds: { start: "2026-11-03", end: "2026-11-16" },

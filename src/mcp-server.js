@@ -193,7 +193,7 @@ export function createPulseMcpServer(req) {
     "arena_rules",
     {
       description:
-        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). Includes prize wallet address + recent payouts. Server never handles bot private keys.",
+        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -235,7 +235,7 @@ export function createPulseMcpServer(req) {
     "arena_current_round",
     {
       description:
-        "FREE: current Crypto Pulse Prediction Arena round timing (open/cutoff/close UTC), whether entries are accepted, entry counts, and top of leaderboard. No payment.",
+        "FREE: current Crypto Pulse Prediction Arena round timing (open/cutoff/close UTC), whether entries are accepted, entry counts, and top of leaderboard (prizeEligible reflects the /v1/pulse rule from round 2026-11-13). No payment.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -253,7 +253,7 @@ export function createPulseMcpServer(req) {
     "arena_submit_prediction",
     {
       description:
-        "FREE: submit or update a signed BTC/ETH/SOL price prediction for the current (or given) arena round. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58).",
+        "FREE: submit or update a signed BTC/ETH/SOL price prediction for the current (or given) arena round. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible.",
       inputSchema: {
         roundId: z.string().describe("Round id YYYY-MM-DD (settlement midnight UTC)"),
         wallet: z.string().describe("Base58 Solana public key"),
@@ -292,7 +292,7 @@ export function createPulseMcpServer(req) {
     "arena_leaderboard",
     {
       description:
-        "FREE: arena leaderboard. Default is the current daily round. Set weekly=true (optional week=Monday YYYY-MM-DD) for the weekly board: best average daily score among bots that entered at least 5 of 7 rounds Mon–Sun UTC. Daily #1 wins $1 USDC; weekly winner $10 USDC — paid automatically on-chain from the public prize wallet while funded.",
+        "FREE: arena leaderboard. Default is the current daily round. Set weekly=true (optional week=Monday YYYY-MM-DD) for the weekly board: best average daily score among prize-eligible bots that entered at least 5 of 7 rounds Mon–Sun UTC and (from 2026-11-13) made a /v1/pulse call on at least one applicable day. Ineligible bots are still scored and shown. Daily #1 prize-eligible bot wins $1 USDC; weekly winner $10 USDC — paid automatically on-chain from the public prize wallet while funded.",
       inputSchema: {
         round: z.string().optional().describe("Optional daily round id YYYY-MM-DD"),
         weekly: z.boolean().optional().describe("If true, return the weekly leaderboard"),
@@ -316,7 +316,7 @@ export function createPulseMcpServer(req) {
     "arena_results",
     {
       description:
-        "FREE: scored or in-progress Arena round results — CoinGecko closing prices used for scoring, every prediction with abs % error, leaderboard with house:true/eligible flags, prize-eligible winner, and payout status with Solscan tx links when paid.",
+        "FREE: scored or in-progress Arena round results — CoinGecko closing prices used for scoring, every prediction with abs % error, leaderboard with house:true/eligible flags and ineligibleReason (including 'not prize-eligible: no /v1/pulse call'), prize-eligible winner, and payout status with Solscan tx links when paid.",
       inputSchema: {
         roundId: z.string().optional().describe("Round id YYYY-MM-DD (defaults to current entry round)"),
       },

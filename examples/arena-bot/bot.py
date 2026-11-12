@@ -6,6 +6,12 @@ Fetches current BTC/ETH/SOL USD from CoinGecko (public, no key), applies a
 naive "hold last price" prediction, signs with a Solana ed25519 key, and
 POSTs to the free Arena API.
 
+Also makes the 1 free live GET /v1/pulse for the UTC day with
+X-Crypto-Pulse-Free: 1 and X-Pulse-Client-Id set to the payout wallet
+(the same Solana address used as `wallet` on predict). That header value
+is what ties the call to this entry for prize eligibility from the
+2026-11-13 close onward.
+
 Env:
   ARENA_BASE_URL          default https://cryptopulseapi.com
   ARENA_BOT_NAME          display name (default SampleNaiveBot)
@@ -40,9 +46,16 @@ ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana"}
 ASSETS = ("BTC", "ETH", "SOL")
 
 
-def http_json(url: str, method: str = "GET", body: dict | None = None) -> tuple[int, dict]:
+def http_json(
+    url: str,
+    method: str = "GET",
+    body: dict | None = None,
+    extra_headers: dict | None = None,
+) -> tuple[int, dict]:
     data = None
-    headers = {"Accept": "application/json", "User-Agent": "crypto-pulse-arena-sample-bot/0.5"}
+    headers = {"Accept": "application/json", "User-Agent": "crypto-pulse-arena-sample-bot/0.8"}
+    if extra_headers:
+        headers.update(extra_headers)
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
@@ -102,6 +115,29 @@ def naive_predict(spots: dict[str, float]) -> dict[str, float]:
     return dict(spots)
 
 
+def claim_free_pulse(base: str, wallet: str) -> dict:
+    """GET /v1/pulse with the free-daily headers, client id = payout wallet."""
+    status, body = http_json(
+        f"{base}/v1/pulse",
+        extra_headers={
+            "X-Crypto-Pulse-Free": "1",
+            "X-Pulse-Client-Id": wallet,
+        },
+    )
+    return {
+        "httpStatus": status,
+        "ok": status == 200,
+        "alreadyUsedToday": status == 402,
+        "clientId": wallet,
+        "error": body.get("error") if isinstance(body, dict) else None,
+        "billing": body.get("billing") if isinstance(body, dict) else None,
+        "note": (
+            "200 = free daily pulse recorded for this payout wallet; "
+            "402 = free quota already used today (still counts if this wallet was the client id)."
+        ),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Crypto Pulse Arena sample bot")
     parser.add_argument("--dry-run", action="store_true", help="Do not POST; print payload only")
@@ -133,6 +169,20 @@ def main() -> int:
     preds = naive_predict(spots)
     sk = load_signing_key()
     wallet = base58.b58encode(bytes(sk.verify_key)).decode("ascii")
+
+    pulse_claim = None
+    if args.dry_run:
+        pulse_claim = {
+            "dryRun": True,
+            "wouldGET": f"{base}/v1/pulse",
+            "headers": {
+                "X-Crypto-Pulse-Free": "1",
+                "X-Pulse-Client-Id": wallet,
+            },
+            "note": "X-Pulse-Client-Id must be this payout wallet to be prize-eligible.",
+        }
+    else:
+        pulse_claim = claim_free_pulse(base, wallet)
 
     assets = [args.asset] if args.asset else list(ASSETS)
     results = []
@@ -175,6 +225,7 @@ def main() -> int:
                 "botName": bot_name,
                 "spotsUsd": spots,
                 "dryRun": bool(args.dry_run),
+                "freePulse": pulse_claim,
                 "results": results,
             },
             indent=2,

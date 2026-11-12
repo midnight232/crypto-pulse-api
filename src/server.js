@@ -53,10 +53,11 @@ import {
   freePulseClientId,
   describeFreePulseRule,
 } from "./free-pulse.js";
+import { describePulseEligibilityRule, recordSuccessfulPulse } from "./pulse-usage.js";
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.7.0";
+const VERSION = "0.8.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -540,6 +541,11 @@ app.get("/v1/pulse", async (req, res, next) => {
     const pulse = await buildPulse();
     res.set("X-Crypto-Pulse-Free-Remaining", "0");
     res.set("X-Crypto-Pulse-Free-Day", claim.day);
+    try {
+      recordSuccessfulPulse(req, { kind: "free" });
+    } catch (err) {
+      console.error("pulse usage log error", String(err?.message || err));
+    }
     res.json({
       ...pulse,
       billing: {
@@ -561,6 +567,7 @@ app.get("/v1/free-pulse", (req, res) => {
   res.json({
     ...describeFreePulseRule(),
     status: getFreePulseStore().status({ clientId }),
+    arenaPrizeEligibility: describePulseEligibilityRule(),
   });
 });
 
@@ -575,9 +582,14 @@ app.use(
   ),
 );
 
-app.get("/v1/pulse", async (_req, res) => {
+app.get("/v1/pulse", async (req, res) => {
   try {
     const pulse = await buildPulse();
+    try {
+      recordSuccessfulPulse(req, { kind: "paid" });
+    } catch (err) {
+      console.error("pulse usage log error", String(err?.message || err));
+    }
     res.json(pulse);
   } catch (err) {
     console.error("pulse error", String(err?.message || err));

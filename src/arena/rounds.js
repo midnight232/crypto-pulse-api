@@ -10,6 +10,7 @@
  */
 
 import { prizePoolLabel, prizePoolShort, prizeSummary } from "./prizes.js";
+import { describePulseEligibilityRule } from "../pulse-usage.js";
 
 export const ARENA_ASSETS = ["BTC", "ETH", "SOL"];
 export { prizePoolLabel, prizePoolShort, prizeSummary };
@@ -118,7 +119,8 @@ export function arenaRules() {
     prizes: {
       funding: "Sponsor-funded by the operator (Matt). Not funded by entrants.",
       payout:
-        "Automatic on-chain USDC from the public prize wallet after scoring, while the funded program is active. Caps: max $10 per payout, max $11 USDC total per UTC day. Insufficient balance → unpaid/owed (not dropped). Kill switch ARENA_AUTOPAY=off. House bots (official-*) are never eligible. If there is no prize-eligible entry, no prize.",
+        "Automatic on-chain USDC from the public prize wallet after scoring, while the funded program is active. Caps: max $10 per payout, max $11 USDC total per UTC day. Insufficient balance → unpaid/owed (not dropped). Kill switch ARENA_AUTOPAY=off. House bots (official-*) are never eligible. Starting with the round that closes 00:00 UTC on 2026-11-13, a bot is prize-eligible for a daily round only if it made at least one GET /v1/pulse call during the UTC day that ends at closeAt (the previous UTC calendar date). Send X-Pulse-Client-Id equal to the payout wallet (the same Solana address used as wallet on predict); a paid call also counts when the payer wallet matches. Weekly prize: the bot must have been prize-eligible under this rule on at least one applicable day of the week (for 2026-11-09–15, only 2026-11-13..15). Ineligible bots are still scored and shown. If there is no prize-eligible entry, no prize.",
+      pulseEligibility: describePulseEligibilityRule(),
       amount: prizePoolLabel(),
       short: prizePoolShort(),
       details: prizeSummary(),

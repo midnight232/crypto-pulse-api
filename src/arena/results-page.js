@@ -42,7 +42,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{text-align:left
 .house{display:inline-block;background:#3a2f12;color:var(--house);border-radius:999px;padding:.05rem .45rem;font-size:.75rem;margin-left:.25rem}
 </style></head><body><main>
 <h1>Prediction Arena results</h1>
-<p class="muted">Closing prices, predictions, scores, prize-eligible winners, and payout status. House bots (<code>official-*</code>) are labeled and never win prizes.</p>
+<p class="muted">Closing prices, predictions, scores, prize-eligible winners, and payout status. House bots (<code>official-*</code>) are labeled and never win prizes. From the 2026-11-13 close, bots without a /v1/pulse call on the qualifying UTC day are marked “not prize-eligible: no /v1/pulse call” but still scored.</p>
 <p><a href="${esc(baseUrl)}/arena">← Arena</a> · JSON <a href="${esc(baseUrl)}/v1/arena/history">/v1/arena/history</a> · CSV <a href="${esc(baseUrl)}/v1/arena/history?format=csv">?format=csv</a></p>
 <div class="card"><table>
 <thead><tr><th>Round</th><th>Status</th><th>Scored</th><th>Prize winner</th><th>Payout</th></tr></thead>
@@ -68,7 +68,7 @@ export function renderRoundResultsHtml({ results, baseUrl }) {
         <td><code>${esc(row.wallet)}</code>${houseBadge(row)}</td>
         <td>${esc(row.botName || "—")}</td>
         <td>${esc(err)}</td>
-        <td>${row.prizeEligible === false ? "no" : "yes"}</td>
+        <td>${row.prizeEligible === false ? `no${row.ineligibleReason ? ` <span class="muted">(${esc(row.ineligibleReason)})</span>` : ""}` : "yes"}</td>
       </tr>`;
     })
     .join("");
@@ -119,7 +119,7 @@ ${
     ? `<p><code>${esc(win.wallet)}</code> · ${esc(win.botName || "—")} · avg |error| ${
         win.avgAbsPctError == null ? "—" : esc(Number(win.avgAbsPctError).toFixed(4)) + "%"
       }</p>`
-    : `<p class="muted">No prize-eligible complete entry yet (house bots do not count).</p>`
+    : `<p class="muted">No prize-eligible complete entry yet (house bots do not count; from round 2026-11-13 a /v1/pulse call on the qualifying UTC day is also required).</p>`
 }
 <p>Payout: <strong>${esc(pay.payoutStatus || "unpaid")}</strong>
 ${pay.amountUsdc != null ? ` · $${esc(pay.amountUsdc)} USDC` : ""}

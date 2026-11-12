@@ -4,6 +4,7 @@
  */
 import { ARENA_ASSETS } from "./rounds.js";
 import { isHouseEntrant } from "./house.js";
+import { getPulseUsageStore, pulseQualification, NO_PULSE_REASON } from "../pulse-usage.js";
 
 async function fetchClosingSpots() {
   const url =
@@ -47,8 +48,8 @@ export function absPctError(predicted, actual) {
  * Build leaderboard rows for a round.
  * Only wallets with all three assets count for ranking.
  */
-export function buildLeaderboard(round) {
-  if (!round) return { rows: [], incomplete: [] };
+export function buildLeaderboard(round, { usage = getPulseUsageStore() } = {}) {
+  if (!round) return { rows: [], incomplete: [], prizeWinner: null };
 
   const byWallet = new Map();
   for (const p of round.predictions) {
@@ -90,14 +91,22 @@ export function buildLeaderboard(round) {
       ? errors.reduce((s, e) => s + e, 0) / errors.length
       : null;
     const house = isHouseEntrant({ wallet: row.wallet, botName: row.botName });
+    const pulse = pulseQualification({ wallet: row.wallet, roundId: round.roundId, usage });
+    const prizeEligible = !house && pulse.qualified;
+    let ineligibleReason = null;
+    if (house) ineligibleReason = "house bot";
+    else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
     complete.push({
       wallet: row.wallet,
       botName: row.botName,
       firstSubmittedAt: row.firstSubmittedAt,
       avgAbsPctError: avgError,
       house,
-      prizeEligible: !house,
-      eligible: !house,
+      pulseQualified: pulse.qualified,
+      pulseDay: pulse.day,
+      prizeEligible,
+      eligible: prizeEligible,
+      ineligibleReason,
       perAsset: Object.fromEntries(
         ARENA_ASSETS.map((a) => [
           a,

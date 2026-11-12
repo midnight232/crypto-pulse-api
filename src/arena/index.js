@@ -38,6 +38,7 @@ import {
   ensureHouseWalletsFile,
   houseBotsEnabled,
 } from "./house.js";
+import { describePulseEligibilityRule, NO_PULSE_REASON, pulseQualification } from "../pulse-usage.js";
 
 let storeSingleton = null;
 let scorerTimer = null;
@@ -65,6 +66,7 @@ export function getArenaPublicConfig() {
     houseBots: listHouseWalletsPublic(),
     houseBotsNote:
       "Bots named official-* are operator house bots. They appear on the board for transparency but are ineligible for prizes and autopay (house:true, eligible:false).",
+    pulseEligibility: describePulseEligibilityRule(),
   };
 }
 
@@ -142,15 +144,26 @@ export function getLeaderboard(roundId) {
     prizeShort: prizePoolShort(),
     dailyPrizeUsdc: DAILY_PRIZE_USDC,
     ranking: rows,
-    incomplete: incomplete.map((r) => ({
-      ...r,
-      house: isHouseEntrant({ wallet: r.wallet, botName: r.botName }),
-      prizeEligible: !isHouseEntrant({ wallet: r.wallet, botName: r.botName }),
-      eligible: !isHouseEntrant({ wallet: r.wallet, botName: r.botName }),
-    })),
+    incomplete: incomplete.map((r) => {
+      const house = isHouseEntrant({ wallet: r.wallet, botName: r.botName });
+      const pulse = pulseQualification({ wallet: r.wallet, roundId: meta.roundId });
+      const prizeEligible = !house && pulse.qualified;
+      let ineligibleReason = null;
+      if (house) ineligibleReason = "house bot";
+      else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
+      return {
+        ...r,
+        house,
+        pulseQualified: pulse.qualified,
+        prizeEligible,
+        eligible: prizeEligible,
+        ineligibleReason,
+      };
+    }),
     prizeWinner: prizeWinner || null,
+    pulseEligibility: describePulseEligibilityRule(),
     houseBotsNote:
-      "Rows with house:true / eligible:false are official operator bots and cannot win prizes.",
+      "Rows with house:true / eligible:false are official operator bots and cannot win prizes. Starting with round 2026-11-13, prize eligibility also requires a /v1/pulse call on the qualifying UTC day (X-Pulse-Client-Id or payer wallet = payout wallet).",
   };
 }
 
@@ -235,6 +248,11 @@ export function submitPrediction(body) {
   }
 
   const house = isHouseEntrant({ wallet: verified.wallet, botName: verified.botName });
+  const pulse = pulseQualification({ wallet: verified.wallet, roundId });
+  const prizeEligible = !house && pulse.qualified;
+  let ineligibleReason = null;
+  if (house) ineligibleReason = "house bot";
+  else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
   const { created, prediction } = store.upsertPrediction(roundId, {
     wallet: verified.wallet,
     botName: verified.botName,
@@ -259,8 +277,10 @@ export function submitPrediction(body) {
       asset: prediction.asset,
       price: prediction.price,
       house: Boolean(prediction.house || house),
-      prizeEligible: !(prediction.house || house),
-      eligible: !(prediction.house || house),
+      pulseQualified: pulse.qualified,
+      prizeEligible,
+      eligible: prizeEligible,
+      ineligibleReason,
       submittedAt: prediction.submittedAt,
       updatedAt: prediction.updatedAt,
     },
@@ -472,6 +492,11 @@ export function getRoundResults(roundId) {
   const payout = store.getPayout("daily", meta.roundId);
   const predictions = (round.predictions || []).map((p) => {
     const house = Boolean(p.house) || isHouseEntrant({ wallet: p.wallet, botName: p.botName });
+    const pulse = pulseQualification({ wallet: p.wallet, roundId: meta.roundId });
+    const prizeEligible = !house && pulse.qualified;
+    let ineligibleReason = null;
+    if (house) ineligibleReason = "house bot";
+    else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
     return {
       wallet: p.wallet,
       botName: p.botName,
@@ -481,8 +506,10 @@ export function getRoundResults(roundId) {
       submittedAt: p.submittedAt,
       updatedAt: p.updatedAt,
       house,
-      prizeEligible: !house,
-      eligible: !house,
+      pulseQualified: pulse.qualified,
+      prizeEligible,
+      eligible: prizeEligible,
+      ineligibleReason,
     };
   });
   const winner = board.prizeWinner || null;

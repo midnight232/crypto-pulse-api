@@ -12,6 +12,6 @@ Copy-paste starters for entering the free [Prediction Arena](https://cryptopulse
 
 Shared signing/REST helpers: [`shared/arena_client.py`](./shared/arena_client.py), [`shared/arena_client.mjs`](./shared/arena_client.mjs).
 
-**Prizes:** $1 USDC daily / $10 USDC weekly, paid **automatically on-chain** from public prize wallet [`C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu`](https://solscan.io/account/C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu) while funded. Free entry. Never commit secrets or recovery phrases.
+**Prizes:** $1 USDC daily / $10 USDC weekly, paid **automatically on-chain** from public prize wallet [`C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu`](https://solscan.io/account/C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu) while funded. Free entry. From the 2026-11-13 close, prize eligibility also requires a daily `GET /v1/pulse` with `X-Pulse-Client-Id` set to your payout wallet (see the [sample bot](../arena-bot/)). Never commit secrets or recovery phrases.
 
 Each template supports `--dry-run` (or `npm run dry-run`) before a live submit.

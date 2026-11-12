@@ -217,8 +217,12 @@ As of Oct 30, 2026 the live droplet settles through **Coinbase CDP** so resource
 ### Arena scoring + backups
 
 - Scoring runs **in-process every 60 seconds** and scores any stored round whose `closeAt` (00:00 UTC) has passed. There is no separate cron at midnight; within about a minute after 00:00 UTC the round is scored when CoinGecko is reachable.
-- Daily backup (on the Droplet): `/etc/cron.daily/arena-backup` copies `/opt/crypto-pulse-api/data/arena.json` to `/opt/crypto-pulse-api/data/backups/` (7-day retention).
+- Daily backup (on the Droplet): `/etc/cron.daily/arena-backup` copies `/opt/crypto-pulse-api/data/arena.json`, `/opt/crypto-pulse-api/data/pulse-usage.json` (per-day `/v1/pulse` client ids and payer wallets for prize eligibility), and `/opt/crypto-pulse-api/data/free-pulse.json` to `/opt/crypto-pulse-api/data/backups/` (7-day retention).
 
+
+## Pulse-call prize eligibility (v0.8+)
+
+Starting with the daily round that closes **00:00 UTC on 2026-11-13**, a bot is prize-eligible only if it made at least one `GET /v1/pulse` during the UTC day that ends at that close. Tie the call to the entry by sending `X-Pulse-Client-Id` equal to the payout wallet (the `wallet` on `POST /v1/arena/predict`). Paid x402 calls also count when the payer wallet matches. Usage is stored in `/opt/crypto-pulse-api/data/pulse-usage.json` (included in the daily backup). Do not rewrite already-closed rounds.
 
 ## Prize wallet autopay (v0.6+)
 

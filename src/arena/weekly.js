@@ -3,6 +3,7 @@
  */
 import { buildLeaderboard } from "./scoring.js";
 import { isHouseEntrant } from "./house.js";
+import { NO_PULSE_REASON, pulseRuleApplies } from "../pulse-usage.js";
 import {
   WEEKLY_MIN_ROUNDS,
   WEEKLY_PRIZE_USDC,
@@ -34,46 +35,57 @@ export function buildWeeklyLeaderboard(store, weekId) {
           house,
           roundsEntered: [],
           scoredErrors: [],
+          pulseQualifiedRoundIds: [],
         });
       }
       const w = byWallet.get(row.wallet);
       if (row.botName) w.botName = row.botName;
       w.house = w.house || house;
       w.roundsEntered.push(roundId);
+      if (row.prizeEligible && pulseRuleApplies(roundId)) {
+        w.pulseQualifiedRoundIds.push(roundId);
+      }
       if (round.status === "scored" && row.avgAbsPctError != null) {
         w.scoredErrors.push({ roundId, avgAbsPctError: row.avgAbsPctError });
       }
     }
   }
 
-  const ranking = [];
-  const ineligible = [];
+  const enforcedRoundIds = bounds.roundIds.filter((id) => pulseRuleApplies(id));
+  const all = [];
   for (const w of byWallet.values()) {
     const entered = w.roundsEntered.length;
     const house = Boolean(w.house);
     const meetsMin = entered >= WEEKLY_MIN_ROUNDS;
-    const eligible = meetsMin && !house;
+    // For weeks that began before enforcement (Nov 9–15 2026), only days from
+    // 2026-11-13 onward count toward "qualified under this rule on at least one day".
+    const pulseOk = enforcedRoundIds.length === 0 || w.pulseQualifiedRoundIds.length > 0;
+    const eligible = meetsMin && !house && pulseOk;
+    let ineligibleReason = null;
+    if (house) ineligibleReason = "house bot";
+    else if (!meetsMin) ineligibleReason = `fewer than ${WEEKLY_MIN_ROUNDS} complete daily rounds`;
+    else if (!pulseOk) ineligibleReason = NO_PULSE_REASON;
     const avg =
       w.scoredErrors.length > 0
         ? w.scoredErrors.reduce((s, e) => s + e.avgAbsPctError, 0) / w.scoredErrors.length
         : null;
-    const row = {
+    all.push({
       wallet: w.wallet,
       botName: w.botName,
       roundsEntered: entered,
       roundsScored: w.scoredErrors.length,
       roundIds: w.roundsEntered.slice().sort(),
+      pulseQualifiedRoundIds: w.pulseQualifiedRoundIds.slice().sort(),
       avgAbsPctError: avg,
       house,
       prizeEligible: eligible,
       eligible,
+      ineligibleReason,
       minRoundsRequired: WEEKLY_MIN_ROUNDS,
-    };
-    if (eligible) ranking.push(row);
-    else ineligible.push(row);
+    });
   }
 
-  ranking.sort((a, b) => {
+  all.sort((a, b) => {
     if (a.avgAbsPctError == null && b.avgAbsPctError == null) {
       return a.wallet.localeCompare(b.wallet);
     }
@@ -83,13 +95,26 @@ export function buildWeeklyLeaderboard(store, weekId) {
     return a.wallet.localeCompare(b.wallet);
   });
 
-  const rows = ranking.map((r, i) => ({ rank: i + 1, ...r }));
+  let prizeRank = 0;
+  const rows = all.map((r, i) => {
+    const out = { rank: i + 1, ...r };
+    if (r.prizeEligible) {
+      prizeRank += 1;
+      out.prizeRank = prizeRank;
+    } else {
+      out.prizeRank = null;
+    }
+    return out;
+  });
+  const ineligible = rows.filter((r) => !r.prizeEligible);
+  const prizeWinner = rows.find((r) => r.prizeEligible && r.prizeRank === 1) || null;
 
   return {
     weekId: bounds.weekId,
     startRoundId: bounds.startRoundId,
     endRoundId: bounds.endRoundId,
     roundIds: bounds.roundIds,
+    pulseRuleRoundIds: enforcedRoundIds,
     label: bounds.label,
     prize: prizePoolLabel(),
     prizeShort: prizePoolShort(),
@@ -97,7 +122,7 @@ export function buildWeeklyLeaderboard(store, weekId) {
     minRounds: WEEKLY_MIN_ROUNDS,
     ranking: rows,
     ineligible,
-    winner: rows[0] || null,
-    prizeWinner: rows[0] || null,
+    winner: prizeWinner,
+    prizeWinner,
   };
 }
