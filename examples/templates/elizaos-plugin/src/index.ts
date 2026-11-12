@@ -52,7 +52,7 @@ export const enterCryptoPulseArenaAction: ArenaAction = {
     "JOIN_PREDICTION_ARENA",
   ],
   description:
-    "Enter the free Crypto Pulse Prediction Arena: naive close predictions for this round's asset set (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE/ZEC from 2026-11-16), signed with ARENA_SECRET_KEY_BASE58. Set ARENA_DRY_RUN=true to avoid submitting.",
+    "Enter the free Crypto Pulse Prediction Arena: naive close predictions for this round's asset set (BTC/ETH/SOL), signed with ARENA_SECRET_KEY_BASE58. Set ARENA_DRY_RUN=true to avoid submitting.",
   validate: async () => true,
   handler: enterHandler,
   examples: [

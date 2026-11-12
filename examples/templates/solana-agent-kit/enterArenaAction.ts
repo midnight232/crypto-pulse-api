@@ -18,7 +18,7 @@ export const enterCryptoPulseArenaAction: Action = {
     "join crypto pulse arena",
   ],
   description:
-    "Enter the free Crypto Pulse Prediction Arena with naive close predictions for this round's asset set (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE/ZEC from 2026-11-16). Signs with ARENA_SECRET_KEY_BASE58 (or a throwaway key). Pass dryRun=true to avoid submitting. Prizes pay automatically on-chain from the public prize wallet while funded.",
+    "Enter the free Crypto Pulse Prediction Arena with naive close predictions for this round's asset set (BTC/ETH/SOL). Signs with ARENA_SECRET_KEY_BASE58 (or a throwaway key). Pass dryRun=true to avoid submitting. Prizes pay automatically on-chain from the public prize wallet while funded.",
   examples: [
     [
       {

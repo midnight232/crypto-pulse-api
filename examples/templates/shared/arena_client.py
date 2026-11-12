@@ -12,8 +12,8 @@ from nacl.signing import SigningKey
 
 DEFAULT_BASE = "https://cryptopulseapi.com"
 COINGECKO = "https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd"
-ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "SUI": "sui", "HYPE": "hyperliquid"}
-ASSETS = ("BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC")
+ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana"}
+ASSETS = ("BTC", "ETH", "SOL")
 
 
 def http_json(url: str, method: str = "GET", body: dict | None = None) -> tuple[int, Any]:

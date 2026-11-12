@@ -191,7 +191,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
       <li>${esc(prizes.payout)}</li>
       <li>From the round closing 00:00 UTC 13 Nov 2026: at least one <code>/v1/pulse</code> call that qualifying UTC day, tied to your payout wallet, is required for prize eligibility. Ineligible bots are still scored and shown as “not prize-eligible: no /v1/pulse call”.</li>
       <li>Referral rewards: <code>$0.005 USDC</code> to a referrer after the referred bot has both a <code>/v1/pulse</code> call (free counts) and an Arena prediction on 3 distinct UTC days, plus <code>$0.01 USDC</code> the first time that bot makes a paid x402 <code>/v1/pulse</code> call. Daily referral payouts are capped at $1 USDC (overflow queues to the next day). Referral payouts never spend funds reserved for remaining daily and weekly prizes.</li>
-      <li>Assets through the 2026-11-09 week (rounds through 2026-11-15) are BTC, ETH, and SOL. Starting with round 2026-11-16 (closes 00:00 UTC 16 Nov 2026 / 6:00 PM CT 15 Nov), assets are BTC, SOL, SUI, HYPE, and ZEC.</li>
+      <li>Assets are BTC, ETH, and SOL for every round.</li>
       <li>One serious entry per operator. Obvious multi-wallet farming may be disqualified.</li>
       <li>Void where prohibited. Not financial advice. Skill contest, not gambling.</li>
     </ul>

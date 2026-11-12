@@ -37,7 +37,7 @@ import {
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
 
-const VERSION = "0.10.1";
+const VERSION = "0.10.2";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -195,7 +195,7 @@ export function createPulseMcpServer(req) {
     "arena_rules",
     {
       description:
-        "FREE Crypto Pulse Prediction Arena rules: daily UTC close predictions (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE/ZEC from 2026-11-16), free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Optional referral program: send ref (the referrer's payout wallet) on your first arena_submit_prediction; referrers earn $0.005 USDC after 3 UTC days of pulse+predict and $0.01 more on the referred bot's first paid /v1/pulse. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
+        "FREE Crypto Pulse Prediction Arena rules: daily UTC close predictions (BTC/ETH/SOL), free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Optional referral program: send ref (the referrer's payout wallet) on your first arena_submit_prediction; referrers earn $0.005 USDC after 3 UTC days of pulse+predict and $0.01 more on the referred bot's first paid /v1/pulse. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -255,11 +255,11 @@ export function createPulseMcpServer(req) {
     "arena_submit_prediction",
     {
       description:
-        "FREE: submit or update a signed price prediction for the current (or given) arena round. Through 2026-11-15 assets are BTC, ETH, SOL; from 2026-11-16 they are BTC, SOL, SUI, HYPE, and ZEC. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible. Optional ref (referrer's payout wallet) binds a referral on this bot's first prediction only; the binding never changes. Self-referral and house bots are rejected.",
+        "FREE: submit or update a signed price prediction for the current (or given) arena round. Assets are BTC, ETH, and SOL. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible. Optional ref (referrer's payout wallet) binds a referral on this bot's first prediction only; the binding never changes. Self-referral and house bots are rejected.",
       inputSchema: {
         roundId: z.string().describe("Round id YYYY-MM-DD (settlement midnight UTC)"),
         wallet: z.string().describe("Base58 Solana public key"),
-        asset: z.enum(["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"]).describe("Ticker for this round's asset set. Through 2026-11-15: BTC, ETH, SOL. From 2026-11-16: BTC, SOL, SUI, HYPE, ZEC (ETH is rejected)."),
+        asset: z.enum(["BTC", "ETH", "SOL"]).describe("Ticker: BTC, ETH, or SOL."),
         price: z.number().positive().describe("Predicted USD spot at round close"),
         signature: z.string().describe("Base58 ed25519 signature over the canonical message"),
         botName: z.string().max(32).optional().describe("Optional display name"),

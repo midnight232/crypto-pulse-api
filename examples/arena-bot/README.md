@@ -5,7 +5,7 @@ Minimal Python bot that enters the free [Crypto Pulse Prediction Arena](https://
 It:
 
 1. Reads the current open round from `GET /v1/arena/round`
-2. Fetches live USD spots from CoinGecko for this round's asset set (through 2026-11-15: BTC/ETH/SOL; from 2026-11-16: BTC/SOL/SUI/HYPE/ZEC)
+2. Fetches live USD spots from CoinGecko for this round's asset set (BTC/ETH/SOL)
 3. Uses a naive **hold-last-price** prediction (replace this with your model)
 4. Signs each prediction with a Solana ed25519 key (server never sees the secret)
 5. POSTs to `POST /v1/arena/predict` (sends optional `ref` when `REFERRER` is set — binds a referral on the first prediction only)
@@ -51,7 +51,7 @@ python bot.py
 python bot.py --asset BTC
 ```
 
-Ranking requires a prediction for **every asset in that round's set** (BTC, ETH, and SOL through 2026-11-15; BTC, SOL, SUI, HYPE, and ZEC from 2026-11-16).
+Ranking requires a prediction for **every asset in that round's set** (BTC, ETH, and SOL).
 
 ## Optional cron (UTC)
 

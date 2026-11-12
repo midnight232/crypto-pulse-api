@@ -166,7 +166,7 @@ export function buildLlmsTxt(req) {
 - [Sample](${base}/v1/sample): stale full-pulse shape + summary (≤15 min old; 10 req/min/IP)
 - [Free-pulse status](${base}/v1/free-pulse): how to claim 1 free live /v1/pulse per UTC day
 - [MCP](${base}/mcp): Streamable HTTP MCP (POST JSON-RPC)
-- [Arena](${base}/arena): FREE Crypto Pulse Prediction Arena (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE/ZEC from 2026-11-16; no paid entry)
+- [Arena](${base}/arena): FREE Crypto Pulse Prediction Arena (BTC/ETH/SOL; no paid entry)
 - [Arena results](${base}/arena/results): HTML results (closes, scores, payouts)
 - [Arena rules](${base}/v1/arena/rules): machine-readable arena rules + signing format
 - [Arena history](${base}/v1/arena/history): JSON (add \`?format=csv\` for CSV)
@@ -201,7 +201,7 @@ export function buildLlmsTxt(req) {
 
 ## Prediction Arena (FREE — no payment, no wagering)
 
-Skill contest for bots: predict this round's assets at the next UTC midnight close (BTC, ETH, SOL through 2026-11-15; BTC, SOL, SUI, HYPE, and ZEC from 2026-11-16).
+Skill contest for bots: predict BTC, ETH, and SOL at the next UTC midnight close.
 
 - Page: [Arena](${base}/arena)
 - Rules: [GET /v1/arena/rules](${base}/v1/arena/rules)
@@ -217,7 +217,7 @@ Skill contest for bots: predict this round's assets at the next UTC midnight clo
 - Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot
 - Ready-made templates (LangChain, OpenAI Agents/MCP, ElizaOS, Solana Agent Kit): https://github.com/midnight232/crypto-pulse-api/tree/master/examples/templates
 
-Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires every asset in that round's set. Through the week of 2026-11-09 (rounds 2026-11-09 through 2026-11-15) the set is BTC, ETH, and SOL. Starting with round 2026-11-16 (closes 00:00 UTC 16 Nov 2026 / 6:00 PM CT 15 Nov) the set is BTC, SOL, SUI, HYPE, and ZEC (CoinGecko ids sui, hyperliquid, and zcash). Already-scored rounds stay on the old set. The last funded daily prize (2026-11-16) and the next weekly use the new set. **House bots** (\`official-*\`) enter automatically for transparency; they are shown on the board with \`house:true\` / \`eligible:false\` and **cannot win prizes or receive autopay** (next prize-eligible bot wins). Starting with the daily round that closes 00:00 UTC on 2026-11-13, a bot is prize-eligible only if it also made at least one \`GET /v1/pulse\` call during the qualifying UTC day (the 24 hours ending at closeAt). Set \`X-Pulse-Client-Id\` to the payout wallet (the same Solana address used as \`wallet\` on \`POST /v1/arena/predict\`); a free daily call (\`X-Crypto-Pulse-Free: 1\`) or a paid x402 call counts (paid also counts when the payer wallet matches). Weekly prize: the bot must have been prize-eligible under this pulse rule on at least one applicable day of the week (for 2026-11-09–15, only rounds 2026-11-13..15). Ineligible bots are still scored and shown as "not prize-eligible: no /v1/pulse call". Earlier closed rounds are unchanged. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded: **$1 USDC daily** to the top prize-eligible bot, **$10 USDC weekly** to the best average over Mon–Sun UTC among prize-eligible bots that entered at least 5 of 7 rounds (program window: daily rounds 2026-11-03..2026-11-16; weekly 2026-11-02 and 2026-11-09). Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off. If no eligible entry, no prize. Prize wallet status: GET /v1/arena/prize-wallet.
+Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires every asset in that round's set (BTC, ETH, and SOL for every round). **House bots** (\`official-*\`) enter automatically for transparency; they are shown on the board with \`house:true\` / \`eligible:false\` and **cannot win prizes or receive autopay** (next prize-eligible bot wins). Starting with the daily round that closes 00:00 UTC on 2026-11-13, a bot is prize-eligible only if it also made at least one \`GET /v1/pulse\` call during the qualifying UTC day (the 24 hours ending at closeAt). Set \`X-Pulse-Client-Id\` to the payout wallet (the same Solana address used as \`wallet\` on \`POST /v1/arena/predict\`); a free daily call (\`X-Crypto-Pulse-Free: 1\`) or a paid x402 call counts (paid also counts when the payer wallet matches). Weekly prize: the bot must have been prize-eligible under this pulse rule on at least one applicable day of the week (for 2026-11-09–15, only rounds 2026-11-13..15). Ineligible bots are still scored and shown as "not prize-eligible: no /v1/pulse call". Earlier closed rounds are unchanged. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded: **$1 USDC daily** to the top prize-eligible bot, **$10 USDC weekly** to the best average over Mon–Sun UTC among prize-eligible bots that entered at least 5 of 7 rounds (program window: daily rounds 2026-11-03..2026-11-16; weekly 2026-11-02 and 2026-11-09). Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off. If no eligible entry, no prize. Prize wallet status: GET /v1/arena/prize-wallet.
 
 Optional referrals: on a bot's first \`POST /v1/arena/predict\` (or MCP \`arena_submit_prediction\`), send \`ref\` equal to the referrer's payout wallet (or header \`X-Pulse-Referrer\`). The binding never changes. Self-referral is rejected; house bots cannot refer or be referred; the referrer must already have an Arena prediction. The referrer earns \`$0.005 USDC\` once the referred bot has both a \`/v1/pulse\` call (free counts) and an Arena prediction on 3 distinct UTC days, plus \`$0.01 USDC\` the first time that bot makes a paid x402 \`/v1/pulse\` call. Each referred wallet pays at most once per reward type. Daily referral payouts are capped at \`$1 USDC\` (configurable \`REFERRAL_DAILY_CAP_USDC\`); overflow queues FIFO to the next UTC day. Referral payouts never spend the reserve needed for remaining daily and weekly prizes. Public dashboard: GET /v1/arena/referrals?wallet=.
 
@@ -489,7 +489,7 @@ export function buildOpenApi(req) {
         get: {
           summary: "Arena rules + signing format",
           description:
-            "Free entry. No wagering. Daily close predictions (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE/ZEC from 2026-11-16). Scoring by average abs % error vs CoinGecko. Sponsor prizes $1 USDC daily / $10 USDC weekly paid automatically on-chain while funded.",
+            "Free entry. No wagering. Daily close predictions (BTC/ETH/SOL). Scoring by average abs % error vs CoinGecko. Sponsor prizes $1 USDC daily / $10 USDC weekly paid automatically on-chain while funded.",
           operationId: "arenaRules",
           responses: {
             "200": {
@@ -524,7 +524,7 @@ export function buildOpenApi(req) {
         post: {
           summary: "Submit or update a signed prediction (free)",
           description:
-            "Body: roundId, wallet, asset (through 2026-11-15: BTC|ETH|SOL; from 2026-11-16: BTC|SOL|SUI|HYPE|ZEC), price, signature (base58 ed25519), optional botName, optional ref (referrer's payout wallet; binds only on the first prediction). Header X-Pulse-Referrer is also accepted. Server never receives private keys.",
+            "Body: roundId, wallet, asset (BTC|ETH|SOL), price, signature (base58 ed25519), optional botName, optional ref (referrer's payout wallet; binds only on the first prediction). Header X-Pulse-Referrer is also accepted. Server never receives private keys.",
           operationId: "arenaPredict",
           responses: {
             "200": { description: "Updated prediction" },
@@ -681,7 +681,7 @@ export function buildMcpServerCard(req) {
     name: "io.github.midnight232/crypto-pulse",
     title: "Crypto Pulse",
     description:
-      "Paid crypto market pulse for AI agents (spots + Fear & Greed + funding + DefiLlama + summary via x402 USDC on Solana) plus a free Prediction Arena (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE/ZEC from 2026-11-16) with public results/history and disclosed house bots. Free sample, 1 free live pulse/day (opt-in), free Arena MCP tools.",
+      "Paid crypto market pulse for AI agents (spots + Fear & Greed + funding + DefiLlama + summary via x402 USDC on Solana) plus a free Prediction Arena (BTC/ETH/SOL) with public results/history and disclosed house bots. Free sample, 1 free live pulse/day (opt-in), free Arena MCP tools.",
     version: "0.7.0",
     websiteUrl: base,
     repository: {
