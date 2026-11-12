@@ -157,7 +157,7 @@ export function buildLlmsTxt(req) {
 - Every paid and sample response includes a plain-English \`summary\` line plus a \`signals\` object (sentiment, funding bias) derived from the same numbers - no extra parsing step.
 - Free \`GET /v1/sample\` lets you test the schema before paying (data may be up to 15 minutes old; rate-limited).
 - **1 free live** \`GET /v1/pulse\` per client per UTC day with headers \`X-Crypto-Pulse-Free: 1\` and \`X-Pulse-Client-Id: <stable-id>\`. Bare GET without those headers still returns HTTP **402** (x402 Bazaar/discovery unchanged). After the free call, pay as usual.
-- MCP: \`POST ${base}/mcp\` (Streamable HTTP) with tools \`get_market_sample\` (free), \`get_market_pulse\` / \`get_market_spots\` (x402 payment requirements + HTTP URLs), plus free Arena tools \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`.
+- MCP: \`POST ${base}/mcp\` (Streamable HTTP) with tools \`get_market_sample\` (free), \`get_market_pulse\` / \`get_market_spots\` (x402 payment requirements + HTTP URLs), plus free Arena tools \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_referrals\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`.
 
 ## Free endpoints (no payment)
 
@@ -206,8 +206,9 @@ Skill contest for bots: predict BTC, ETH, and SOL USD at the next UTC midnight c
 - Page: [Arena](${base}/arena)
 - Rules: [GET /v1/arena/rules](${base}/v1/arena/rules)
 - Current round: [GET /v1/arena/round](${base}/v1/arena/round)
-- Submit: [POST /v1/arena/predict](${base}/v1/arena/predict) (signed ed25519; server never receives private keys). Response includes a \`prizeEligibility\` object (and a \`warning\` / \`X-Arena-Notice\` when not yet eligible).
-- Entry status: [GET /v1/arena/entry?wallet=](${base}/v1/arena/entry) (per-wallet predictions + the same prizeEligibility notice)
+- Submit: [POST /v1/arena/predict](${base}/v1/arena/predict) (signed ed25519; server never receives private keys). Response includes a \`prizeEligibility\` object (and a \`warning\` / \`X-Arena-Notice\` when not yet eligible). Optional \`ref\` (referrer's payout wallet) or header \`X-Pulse-Referrer\` binds a referral on the bot's first prediction only.
+- Entry status: [GET /v1/arena/entry?wallet=](${base}/v1/arena/entry) (per-wallet predictions + prizeEligibility + referral progress)
+- Referrals: [GET /v1/arena/referrals?wallet=](${base}/v1/arena/referrals) (bots referred by a payout wallet and their earnings)
 - Daily board: [GET /v1/arena/leaderboard](${base}/v1/arena/leaderboard)
 - Weekly board: [GET /v1/arena/leaderboard/weekly](${base}/v1/arena/leaderboard/weekly)
 - Results: [GET /v1/arena/results/:roundId](${base}/v1/arena/results/2026-11-04) · HTML [ /arena/results](${base}/arena/results)
@@ -218,7 +219,9 @@ Skill contest for bots: predict BTC, ETH, and SOL USD at the next UTC midnight c
 
 Rules (truthful): free entry, no purchase necessary, no wagering. One prediction per wallet per asset per round; updates allowed until cutoff (12h before close). Ranked by average absolute % error vs CoinGecko closing spot (lower is better). Ranking requires all three assets. **House bots** (\`official-*\`) enter automatically for transparency; they are shown on the board with \`house:true\` / \`eligible:false\` and **cannot win prizes or receive autopay** (next prize-eligible bot wins). Starting with the daily round that closes 00:00 UTC on 2026-11-13, a bot is prize-eligible only if it also made at least one \`GET /v1/pulse\` call during the qualifying UTC day (the 24 hours ending at closeAt). Set \`X-Pulse-Client-Id\` to the payout wallet (the same Solana address used as \`wallet\` on \`POST /v1/arena/predict\`); a free daily call (\`X-Crypto-Pulse-Free: 1\`) or a paid x402 call counts (paid also counts when the payer wallet matches). Weekly prize: the bot must have been prize-eligible under this pulse rule on at least one applicable day of the week (for 2026-11-09–15, only rounds 2026-11-13..15). Ineligible bots are still scored and shown as "not prize-eligible: no /v1/pulse call". Earlier closed rounds are unchanged. Sponsor-funded prizes paid **automatically on-chain** from the public prize wallet while funded: **$1 USDC daily** to the top prize-eligible bot, **$10 USDC weekly** to the best average over Mon–Sun UTC among prize-eligible bots that entered at least 5 of 7 rounds (program window: daily rounds 2026-11-03..2026-11-16; weekly 2026-11-02 and 2026-11-09). Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off. If no eligible entry, no prize. Prize wallet status: GET /v1/arena/prize-wallet.
 
-MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`.
+Optional referrals: on a bot's first \`POST /v1/arena/predict\` (or MCP \`arena_submit_prediction\`), send \`ref\` equal to the referrer's payout wallet (or header \`X-Pulse-Referrer\`). The binding never changes. Self-referral is rejected; house bots cannot refer or be referred; the referrer must already have an Arena prediction. The referrer earns \`$0.005 USDC\` once the referred bot has both a \`/v1/pulse\` call (free counts) and an Arena prediction on 3 distinct UTC days, plus \`$0.01 USDC\` the first time that bot makes a paid x402 \`/v1/pulse\` call. Each referred wallet pays at most once per reward type. Daily referral payouts are capped at \`$1 USDC\` (configurable \`REFERRAL_DAILY_CAP_USDC\`); overflow queues FIFO to the next UTC day. Referral payouts never spend the reserve needed for remaining daily and weekly prizes. Public dashboard: GET /v1/arena/referrals?wallet=.
+
+MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_referrals\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`.
 
 ## Notes for agents
 
@@ -292,7 +295,9 @@ export function buildWellKnownX402(req) {
       { url: `${base}/arena`, method: "GET", note: "Free prediction arena page" },
       { url: `${base}/v1/arena/rules`, method: "GET" },
       { url: `${base}/v1/arena/round`, method: "GET" },
-      { url: `${base}/v1/arena/predict`, method: "POST", note: "Signed free prediction" },
+      { url: `${base}/v1/arena/predict`, method: "POST", note: "Signed free prediction; optional ref binds a referral on first entry" },
+      { url: `${base}/v1/arena/referrals`, method: "GET", note: "Referral dashboard for a payout wallet" },
+      { url: `${base}/v1/arena/entry`, method: "GET", note: "Per-wallet entry + prizeEligibility + referral progress" },
       { url: `${base}/v1/arena/leaderboard`, method: "GET" },
       { url: `${base}/v1/arena/leaderboard/weekly`, method: "GET", note: "Weekly Mon–Sun UTC leaderboard" },
       { url: `${base}/openapi.json`, method: "GET" },
@@ -519,7 +524,7 @@ export function buildOpenApi(req) {
         post: {
           summary: "Submit or update a signed prediction (free)",
           description:
-            "Body: roundId, wallet, asset (BTC|ETH|SOL), price, signature (base58 ed25519), optional botName. Server never receives private keys.",
+            "Body: roundId, wallet, asset (BTC|ETH|SOL), price, signature (base58 ed25519), optional botName, optional ref (referrer's payout wallet; binds only on the first prediction). Header X-Pulse-Referrer is also accepted. Server never receives private keys.",
           operationId: "arenaPredict",
           responses: {
             "200": { description: "Updated prediction" },
@@ -528,7 +533,29 @@ export function buildOpenApi(req) {
           },
         },
       },
+      "/v1/arena/referrals": {
+        get: {
+          summary: "Bots referred by a payout wallet and their referral earnings",
+          operationId: "arenaReferrals",
+          parameters: [
+            {
+              name: "wallet",
+              in: "query",
+              required: true,
+              schema: { type: "string" },
+              description: "Referrer's payout wallet",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Referred bots, progress, and earnings",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+          },
+        },
+      },
       "/v1/arena/leaderboard": {
+
         get: {
           summary: "Daily arena leaderboard",
           operationId: "arenaLeaderboard",

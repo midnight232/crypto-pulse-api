@@ -217,7 +217,7 @@ As of Oct 30, 2026 the live droplet settles through **Coinbase CDP** so resource
 ### Arena scoring + backups
 
 - Scoring runs **in-process every 60 seconds** and scores any stored round whose `closeAt` (00:00 UTC) has passed. There is no separate cron at midnight; within about a minute after 00:00 UTC the round is scored when CoinGecko is reachable.
-- Daily backup (on the Droplet): `/etc/cron.daily/arena-backup` copies `/opt/crypto-pulse-api/data/arena.json`, `/opt/crypto-pulse-api/data/pulse-usage.json` (per-day `/v1/pulse` client ids and payer wallets for prize eligibility), and `/opt/crypto-pulse-api/data/free-pulse.json` to `/opt/crypto-pulse-api/data/backups/` (7-day retention).
+- Daily backup (on the Droplet): `/etc/cron.daily/arena-backup` copies `/opt/crypto-pulse-api/data/arena.json`, `/opt/crypto-pulse-api/data/pulse-usage.json` (per-day `/v1/pulse` client ids and payer wallets for prize eligibility), `/opt/crypto-pulse-api/data/referrals.json` (referral bindings and payout queue), and `/opt/crypto-pulse-api/data/free-pulse.json` to `/opt/crypto-pulse-api/data/backups/` (7-day retention).
 
 
 ## Pulse-call prize eligibility (v0.8+)
@@ -232,3 +232,16 @@ Starting with the daily round that closes **00:00 UTC on 2026-11-13**, a bot is 
 - Program window: daily rounds 2026-11-03..2026-11-16; weekly weeks 2026-11-02 and 2026-11-09.
 - Caps: max $10 per payout; max $11 USDC total per UTC day.
 - Fund with **$34 USDC** + about **0.05 SOL** (fees + recipient ATA rent ~0.002 SOL when needed). Recipient ATA rent is paid by the prize wallet.
+
+## Arena referrals (v0.9+)
+
+A new bot can name a referrer once, on its first `POST /v1/arena/predict`, by sending optional `ref` (the referrer's payout wallet). The MCP `arena_submit_prediction` tool and the `X-Pulse-Referrer` header are also accepted. The binding never changes. Self-referral is rejected. House bots cannot refer or be referred. The referrer must already have at least one Arena prediction.
+
+Rewards (once each per referred wallet), paid to the referrer from the prize wallet:
+
+- `$0.005 USDC` after the referred bot has both a `/v1/pulse` call (free counts) and an Arena prediction on 3 distinct UTC days.
+- `$0.01 USDC` the first time the referred bot makes a paid x402 `/v1/pulse` call (payer wallet or `X-Pulse-Client-Id` matches).
+
+Daily referral payouts are capped at `$1 USDC` (`REFERRAL_DAILY_CAP_USDC`). Amounts over the cap queue FIFO to the next UTC day; they are not dropped. Referral payouts never spend the USDC reserved for remaining daily and weekly prizes — if `balance - reserve` cannot cover a payout, it stays queued and is flagged `held_reserve` in the admin export.
+
+`REFERRAL_AUTOPAY=dry` (the code default) evaluates the queue and logs what would be paid without sending USDC. Set `REFERRAL_AUTOPAY=on` only when you want live referral transfers. `off` skips processing. Bindings and the payout queue live in `/opt/crypto-pulse-api/data/referrals.json` (included in the daily backup). Public dashboard: `GET /v1/arena/referrals?wallet=`.

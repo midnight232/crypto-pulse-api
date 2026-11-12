@@ -32,11 +32,12 @@ import {
   submitPrediction,
   signingHelp,
   decorateWithPrizeEligibility,
+  getReferrerDashboard,
 } from "./arena/index.js";
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
 
-const VERSION = "0.8.1";
+const VERSION = "0.9.0";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -194,7 +195,7 @@ export function createPulseMcpServer(req) {
     "arena_rules",
     {
       description:
-        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
+        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Optional referral program: send ref (the referrer's payout wallet) on your first arena_submit_prediction; referrers earn $0.005 USDC after 3 UTC days of pulse+predict and $0.01 more on the referred bot's first paid /v1/pulse. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -254,7 +255,7 @@ export function createPulseMcpServer(req) {
     "arena_submit_prediction",
     {
       description:
-        "FREE: submit or update a signed BTC/ETH/SOL price prediction for the current (or given) arena round. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible.",
+        "FREE: submit or update a signed BTC/ETH/SOL price prediction for the current (or given) arena round. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible. Optional ref (referrer's payout wallet) binds a referral on this bot's first prediction only; the binding never changes. Self-referral and house bots are rejected.",
       inputSchema: {
         roundId: z.string().describe("Round id YYYY-MM-DD (settlement midnight UTC)"),
         wallet: z.string().describe("Base58 Solana public key"),
@@ -262,6 +263,7 @@ export function createPulseMcpServer(req) {
         price: z.number().positive().describe("Predicted USD spot at round close"),
         signature: z.string().describe("Base58 ed25519 signature over the canonical message"),
         botName: z.string().max(32).optional().describe("Optional display name"),
+        ref: z.string().optional().describe("Optional referrer payout wallet. Bound only on this bot's first prediction; ignored later. Rejected if it equals this wallet."),
       },
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
@@ -283,6 +285,34 @@ export function createPulseMcpServer(req) {
           },
           { wallet: args?.wallet, botName: args?.botName, roundId: args?.roundId },
         );
+        return {
+          content: [{ type: "text", text: JSON.stringify(fail, null, 2) }],
+          structuredContent: fail,
+          isError: true,
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "arena_referrals",
+    {
+      description:
+        "FREE: list bots referred by a payout wallet, their 3-day pulse+predict progress, and referral earnings (base $0.005 / bonus $0.01 USDC). Same data as GET /v1/arena/referrals?wallet=.",
+      inputSchema: {
+        wallet: z.string().describe("Referrer's payout wallet (Solana base58)"),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ wallet }) => {
+      try {
+        const result = getReferrerDashboard(wallet);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          structuredContent: result,
+        };
+      } catch (err) {
+        const fail = { ok: false, error: err.code || "bad_request", message: err.message };
         return {
           content: [{ type: "text", text: JSON.stringify(fail, null, 2) }],
           structuredContent: fail,

@@ -54,10 +54,29 @@ import {
   describeFreePulseRule,
 } from "./free-pulse.js";
 import { describePulseEligibilityRule, recordSuccessfulPulse } from "./pulse-usage.js";
+import { getStore } from "./arena/index.js";
+import { getReferralStore, refreshReferralProgress } from "./arena/referrals.js";
+
+function maybeRefreshReferralAfterPulse(rec) {
+  try {
+    const store = getReferralStore();
+    const wallets = new Set();
+    if (rec?.clientId) wallets.add(String(rec.clientId).trim());
+    if (rec?.payerWallet) wallets.add(String(rec.payerWallet).trim());
+    const arenaStore = getStore();
+    for (const w of wallets) {
+      if (w && store.getBinding(w)) {
+        refreshReferralProgress({ wallet: w, arenaStore });
+      }
+    }
+  } catch (err) {
+    console.error("referral progress error", String(err?.message || err));
+  }
+}
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.8.1";
+const VERSION = "0.9.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -542,7 +561,7 @@ app.get("/v1/pulse", async (req, res, next) => {
     res.set("X-Crypto-Pulse-Free-Remaining", "0");
     res.set("X-Crypto-Pulse-Free-Day", claim.day);
     try {
-      recordSuccessfulPulse(req, { kind: "free" });
+      maybeRefreshReferralAfterPulse(recordSuccessfulPulse(req, { kind: "free" }));
     } catch (err) {
       console.error("pulse usage log error", String(err?.message || err));
     }
@@ -586,7 +605,7 @@ app.get("/v1/pulse", async (req, res) => {
   try {
     const pulse = await buildPulse();
     try {
-      recordSuccessfulPulse(req, { kind: "paid" });
+      maybeRefreshReferralAfterPulse(recordSuccessfulPulse(req, { kind: "paid" }));
     } catch (err) {
       console.error("pulse usage log error", String(err?.message || err));
     }

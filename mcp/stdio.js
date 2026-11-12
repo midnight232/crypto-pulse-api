@@ -19,7 +19,7 @@ const BASE = (process.env.PUBLIC_BASE_URL || "https://cryptopulseapi.com").repla
   /\/$/,
   "",
 );
-const VERSION = "0.3.0";
+const VERSION = "0.9.0";
 
 async function fetchJson(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {

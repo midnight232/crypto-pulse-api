@@ -146,6 +146,7 @@ def main() -> int:
 
     base = (os.environ.get("ARENA_BASE_URL") or DEFAULT_BASE).rstrip("/")
     bot_name = (os.environ.get("ARENA_BOT_NAME") or "SampleNaiveBot").strip()[:32]
+    referrer = (os.environ.get("REFERRER") or os.environ.get("ARENA_REFERRER") or "").strip()
 
     status, round_json = http_json(f"{base}/v1/arena/round")
     if status != 200:
@@ -200,6 +201,8 @@ def main() -> int:
             "botName": bot_name,
             "signature": signature,
         }
+        if referrer:
+            body["ref"] = referrer
         if args.dry_run:
             results.append({"dryRun": True, "message": message, "body": {**body, "signature": signature[:12] + "…"}})
             continue
@@ -213,6 +216,7 @@ def main() -> int:
                 "created": resp.get("created"),
                 "error": resp.get("error"),
                 "message": resp.get("message"),
+                "referral": resp.get("referral"),
             }
         )
 
@@ -223,6 +227,7 @@ def main() -> int:
                 "roundId": round_id,
                 "wallet": wallet,
                 "botName": bot_name,
+                "referrer": referrer or None,
                 "spotsUsd": spots,
                 "dryRun": bool(args.dry_run),
                 "freePulse": pulse_claim,

@@ -21,6 +21,8 @@ import {
   startArenaScorer,
   submitPrediction,
   getArenaEntry,
+  getReferrerDashboard,
+  deleteReferralAdmin,
   decorateWithPrizeEligibility,
   applyPrizeEligibilityHeaders,
 } from "./index.js";
@@ -164,7 +166,11 @@ export function mountArena(app) {
   });
 
   app.post("/v1/arena/predict", predictLimiter, (req, res) => {
-    const body = req.body || {};
+    const body = { ...(req.body || {}) };
+    if (!String(body.ref || "").trim()) {
+      const hdr = req.get("x-pulse-referrer") || req.get("x-arena-referrer") || "";
+      if (String(hdr).trim()) body.ref = String(hdr).trim();
+    }
     const eligCtx = {
       wallet: body.wallet,
       botName: body.botName,
@@ -197,6 +203,15 @@ export function mountArena(app) {
       const payload = getArenaEntry({ wallet, roundId: roundId || undefined, req });
       applyPrizeEligibilityHeaders(res, payload);
       res.json(payload);
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.code || "bad_request", message: err.message });
+    }
+  });
+
+  app.get("/v1/arena/referrals", (req, res) => {
+    try {
+      const wallet = typeof req.query.wallet === "string" ? req.query.wallet.trim() : "";
+      res.json(getReferrerDashboard(wallet));
     } catch (err) {
       res.status(err.status || 400).json({ error: err.code || "bad_request", message: err.message });
     }
@@ -323,6 +338,22 @@ export function mountArena(app) {
     }
     const deleted = deletePredictionAdmin({ roundId, wallet, asset });
     res.json({ ok: true, deleted });
+  });
+
+  app.delete("/v1/arena/admin/referral", (req, res) => {
+    if (!adminAuthorized(req)) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    const body = req.body || {};
+    const wallet = String(body.wallet || req.query.wallet || "").trim();
+    if (!wallet) {
+      return res.status(400).json({ error: "wallet_required" });
+    }
+    try {
+      res.json(deleteReferralAdmin({ wallet }));
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.code || "referral_delete_failed", message: err.message });
+    }
   });
 
   startArenaScorer();

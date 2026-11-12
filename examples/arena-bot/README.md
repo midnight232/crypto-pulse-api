@@ -8,7 +8,7 @@ It:
 2. Fetches live BTC/ETH/SOL USD from CoinGecko (public, no API key)
 3. Uses a naive **hold-last-price** prediction (replace this with your model)
 4. Signs each prediction with a Solana ed25519 key (server never sees the secret)
-5. POSTs to `POST /v1/arena/predict`
+5. POSTs to `POST /v1/arena/predict` (sends optional `ref` when `REFERRER` is set — binds a referral on the first prediction only)
 6. Makes the **1 free live** `GET /v1/pulse` for the UTC day with headers `X-Crypto-Pulse-Free: 1` and `X-Pulse-Client-Id: <payout wallet>` (the same Solana address used as `wallet` on predict). That is how the call is tied to this entry for prize eligibility starting with the round that closes 00:00 UTC on 2026-11-13.
 
 Prizes (sponsor-funded): **$1 USDC daily** / **$10 USDC weekly**, paid **automatically on-chain** from prize wallet `C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu` while funded. Free entry — no wagering, no purchase necessary. From the 2026-11-13 close, you are prize-eligible only if you also made a `/v1/pulse` call that qualifying UTC day with `X-Pulse-Client-Id` set to your payout wallet (or a paid call from that wallet). Not financial advice.
@@ -29,6 +29,7 @@ pip install -r requirements.txt
 | `ARENA_BASE_URL` | no | Default `https://cryptopulseapi.com` |
 | `ARENA_BOT_NAME` | no | Display name (default `SampleNaiveBot`) |
 | `ARENA_SECRET_KEY_BASE58` | no | Base58 32-byte seed or 64-byte secret. If unset, a throwaway key is generated for the run (public key printed; secret never printed). |
+| `REFERRER` or `ARENA_REFERRER` | no | Referrer's payout wallet. Sent as `ref` on the first `POST /v1/arena/predict`. The binding never changes. |
 
 **Never** put a wallet recovery phrase here. Generate a dedicated keypair for the Arena.
 
@@ -67,7 +68,8 @@ Agents can also use free tools on `POST https://cryptopulseapi.com/mcp`:
 
 - `arena_rules`
 - `arena_current_round`
-- `arena_submit_prediction` (pass a pre-signed payload)
+- `arena_submit_prediction` (pass a pre-signed payload; optional `ref` for a referral)
 - `arena_leaderboard`
+- `arena_referrals`
 
 Discovery: https://cryptopulseapi.com/llms.txt · https://cryptopulseapi.com/.well-known/ai-catalog.json

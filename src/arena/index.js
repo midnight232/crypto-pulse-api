@@ -40,6 +40,17 @@ import {
 } from "./house.js";
 import { describePulseEligibilityRule, NO_PULSE_REASON, pulseQualification } from "../pulse-usage.js";
 import { publicBaseUrl } from "../discovery.js";
+import {
+  bindReferral,
+  getReferralView,
+  getReferrerDashboard,
+  getReferralStore,
+  refreshReferralProgress,
+  processReferralPayouts,
+  referralAdminSummary,
+  walletHasPrediction,
+  describeReferralProgram,
+} from "./referrals.js";
 
 let storeSingleton = null;
 let scorerTimer = null;
@@ -127,7 +138,7 @@ export function getRoundById(roundId) {
 }
 
 export function getRules() {
-  return arenaRules();
+  return { ...arenaRules(), referrals: describeReferralProgram() };
 }
 
 export function getLeaderboard(roundId) {
@@ -306,13 +317,15 @@ export function getArenaEntry({ wallet, roundId, botName, baseUrl, req } = {}) {
       updatedAt: p.updatedAt,
     })),
   };
-  return decorateWithPrizeEligibility(payload, {
+  const out = decorateWithPrizeEligibility(payload, {
     wallet: w,
     botName: displayName,
     roundId: meta.roundId,
     baseUrl,
     req,
   });
+  out.referral = getReferralView(w, { arenaStore: store });
+  return out;
 }
 
 export function submitPrediction(body) {
@@ -366,6 +379,17 @@ export function submitPrediction(body) {
     );
   }
 
+  const firstEntry = !walletHasPrediction(store, verified.wallet);
+  const ref = String(body.ref || "").trim();
+  if (firstEntry && ref) {
+    bindReferral({
+      referred: verified.wallet,
+      referrer: ref,
+      botName: verified.botName,
+      arenaStore: store,
+    });
+  }
+
   const house = isHouseEntrant({ wallet: verified.wallet, botName: verified.botName });
   const pulse = pulseQualification({ wallet: verified.wallet, roundId });
   const prizeEligible = !house && pulse.qualified;
@@ -383,6 +407,9 @@ export function submitPrediction(body) {
     house,
   });
 
+  refreshReferralProgress({ wallet: prediction.wallet, arenaStore: store });
+  const referral = getReferralView(prediction.wallet, { arenaStore: store });
+
   return decorateWithPrizeEligibility(
     {
       ok: true,
@@ -391,6 +418,7 @@ export function submitPrediction(body) {
       roundId,
       cutoffAt: meta.cutoffAt,
       closeAt: meta.closeAt,
+      referral,
       prediction: {
         wallet: prediction.wallet,
         botName: prediction.botName,
@@ -497,6 +525,7 @@ export function exportWinners({ roundId, weekId } = {}) {
     ),
     prizeWallet: resolvePrizeWalletAddress(),
     autopayEnabled: autopayEnabled(),
+    referrals: referralAdminSummary({ arenaStore: store }),
   };
 }
 
@@ -529,6 +558,17 @@ export function deletePredictionAdmin({ roundId, wallet, asset }) {
   const store = getStore();
   return store.deletePrediction(roundId, wallet, asset || null);
 }
+
+export function deleteReferralAdmin({ wallet }) {
+  const w = String(wallet || "").trim();
+  if (!w) {
+    throw Object.assign(new Error("wallet required"), { code: "missing_wallet", status: 400 });
+  }
+  const deleted = getReferralStore().deleteBinding(w);
+  return { ok: true, deleted, wallet: w };
+}
+
+export { getReferrerDashboard, getReferralView, processReferralPayouts };
 
 export async function runDueScoring() {
   const store = getStore();
@@ -574,7 +614,25 @@ export async function runDueScoring() {
     autopay = { ok: false, error: String(err?.message || err) };
     console.error(JSON.stringify({ event: "arena_autopay_tick_error", error: String(err?.message || err) }));
   }
-  return { scoring: results, autopay };
+  let referrals = null;
+  try {
+    referrals = await processReferralPayouts(store);
+    if (referrals?.results?.length) {
+      console.log(
+        JSON.stringify({
+          event: "arena_referral_tick",
+          mode: referrals.mode,
+          prizeReserveUsdc: referrals.prizeReserveUsdc,
+          spentTodayUsdc: referrals.spentTodayUsdc,
+          results: referrals.results.length,
+        }),
+      );
+    }
+  } catch (err) {
+    referrals = { ok: false, error: String(err?.message || err) };
+    console.error(JSON.stringify({ event: "arena_referral_tick_error", error: String(err?.message || err) }));
+  }
+  return { scoring: results, autopay, referrals };
 }
 
 export function startArenaScorer({ intervalMs = 60_000 } = {}) {
