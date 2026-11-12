@@ -4,7 +4,7 @@
  */
 import nacl from "tweetnacl";
 import { base58 } from "@scure/base";
-import { ARENA_ASSETS } from "./rounds.js";
+import { arenaAssetsForRound } from "./rounds.js";
 
 export const MESSAGE_PREFIX = "crypto-pulse-arena:v1";
 
@@ -35,11 +35,14 @@ export function normalizePrice(price) {
   return { value: Number(s), canonical: s };
 }
 
-export function normalizeAsset(asset) {
+export function normalizeAsset(asset, roundId) {
   const a = String(asset || "").toUpperCase().trim();
-  if (!ARENA_ASSETS.includes(a)) {
-    throw Object.assign(new Error(`asset must be one of ${ARENA_ASSETS.join(", ")}`), {
+  const allowed = arenaAssetsForRound(roundId);
+  if (!allowed.includes(a)) {
+    throw Object.assign(new Error(`asset must be one of ${allowed.join(", ")} for round ${roundId || "unknown"}`), {
       code: "invalid_asset",
+      assets: allowed,
+      roundId: roundId || null,
     });
   }
   return a;
@@ -92,7 +95,7 @@ export function verifyPredictionSignature({
   signature,
 }) {
   const { wallet: w, bytes: pub } = normalizeWallet(wallet);
-  const a = normalizeAsset(asset);
+  const a = normalizeAsset(asset, roundId);
   const { value, canonical } = normalizePrice(price);
   const name = sanitizeBotName(botName);
   const message = buildCanonicalMessage({

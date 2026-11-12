@@ -2,33 +2,31 @@
  * Score a closed arena round against CoinGecko spots (same source as /v1/spots).
  * Never sends funds. Rankings only.
  */
-import { ARENA_ASSETS } from "./rounds.js";
+import { arenaAssetsForRound, coingeckoIdsForAssets, ARENA_COINGECKO_IDS } from "./rounds.js";
 import { isHouseEntrant } from "./house.js";
 import { getPulseUsageStore, pulseQualification, NO_PULSE_REASON } from "../pulse-usage.js";
 
-async function fetchClosingSpots() {
-  const url =
-    "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd";
+async function fetchClosingSpots(roundId) {
+  const assets = arenaAssetsForRound(roundId);
+  const ids = coingeckoIdsForAssets(assets);
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(",")}&vs_currencies=usd`;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12_000);
   try {
     const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const usd = {
-      BTC: data.bitcoin?.usd ?? null,
-      ETH: data.ethereum?.usd ?? null,
-      SOL: data.solana?.usd ?? null,
-    };
-    for (const a of ARENA_ASSETS) {
-      if (usd[a] == null || !Number.isFinite(Number(usd[a]))) {
+    const closes = {};
+    for (const a of assets) {
+      const id = ARENA_COINGECKO_IDS[a];
+      const v = data[id]?.usd ?? null;
+      if (v == null || !Number.isFinite(Number(v))) {
         throw new Error(`missing_spot_${a}`);
       }
+      closes[a] = Number(v);
     }
     return {
-      BTC: Number(usd.BTC),
-      ETH: Number(usd.ETH),
-      SOL: Number(usd.SOL),
+      ...closes,
       fetchedAt: new Date().toISOString(),
       source: url,
     };
@@ -46,11 +44,12 @@ export function absPctError(predicted, actual) {
 
 /**
  * Build leaderboard rows for a round.
- * Only wallets with all three assets count for ranking.
+ * Only wallets with every asset in that round's set count for ranking.
  */
 export function buildLeaderboard(round, { usage = getPulseUsageStore() } = {}) {
   if (!round) return { rows: [], incomplete: [], prizeWinner: null };
 
+  const assets = arenaAssetsForRound(round.roundId);
   const byWallet = new Map();
   for (const p of round.predictions) {
     if (!byWallet.has(p.wallet)) {
@@ -75,17 +74,17 @@ export function buildLeaderboard(round, { usage = getPulseUsageStore() } = {}) {
   const complete = [];
   const incomplete = [];
   for (const row of byWallet.values()) {
-    const missing = ARENA_ASSETS.filter((a) => !row.assets[a]);
+    const missing = assets.filter((a) => !row.assets[a]);
     if (missing.length) {
       incomplete.push({
         wallet: row.wallet,
         botName: row.botName,
-        assetsPresent: ARENA_ASSETS.filter((a) => row.assets[a]),
+        assetsPresent: assets.filter((a) => row.assets[a]),
         missing,
       });
       continue;
     }
-    const errors = ARENA_ASSETS.map((a) => row.assets[a].absPctError);
+    const errors = assets.map((a) => row.assets[a].absPctError);
     const scored = round.status === "scored" && errors.every((e) => e != null);
     const avgError = scored
       ? errors.reduce((s, e) => s + e, 0) / errors.length
@@ -108,7 +107,7 @@ export function buildLeaderboard(round, { usage = getPulseUsageStore() } = {}) {
       eligible: prizeEligible,
       ineligibleReason,
       perAsset: Object.fromEntries(
-        ARENA_ASSETS.map((a) => [
+        assets.map((a) => [
           a,
           {
             predicted: row.assets[a].price,
@@ -154,7 +153,7 @@ export async function scoreRound(store, roundId, { fetchSpots = fetchClosingSpot
     return { ok: true, already: true, roundId, closes: round.closes };
   }
 
-  const closes = await fetchSpots();
+  const closes = await fetchSpots(roundId);
   const errorMap = {};
   for (const p of round.predictions) {
     const actual = closes[p.asset];

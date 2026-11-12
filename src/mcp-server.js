@@ -37,7 +37,7 @@ import {
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
 
-const VERSION = "0.9.0";
+const VERSION = "0.10.0";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -65,7 +65,7 @@ function paymentHint(kind, req) {
         note: "Free sample has the same JSON shape as /v1/pulse but may be up to 15 minutes old.",
       },
       whyPay:
-        "One paid spots call is cheaper than chaining four single-purpose price APIs when you only need BTC/ETH/SOL/HYPE USD. Prefer get_market_pulse ($0.02) when you also need Fear & Greed + funding + DeFi.",
+        "One paid spots call is cheaper than chaining four single-purpose price APIs when you only need BTC/ETH/SOL/SUI/HYPE USD. Prefer get_market_pulse ($0.02) when you also need Fear & Greed + funding + DeFi.",
     };
   }
   return {
@@ -83,7 +83,7 @@ function paymentHint(kind, req) {
       method: "GET",
       url: `${base}/v1/pulse`,
       assetUrl: `${base}/v1/pulse/{asset}`,
-      assetEnum: ["BTC", "ETH", "SOL", "HYPE"],
+      assetEnum: ["BTC", "ETH", "SOL", "SUI", "HYPE"],
       howToPay:
         "GET the URL without payment → HTTP 402 with PAYMENT-REQUIRED. Pay exact USDC on Solana, retry with PAYMENT-SIGNATURE (x402 v2). Facilitator covers Solana fees.",
     },
@@ -136,7 +136,7 @@ export function createPulseMcpServer(req) {
         `Live full pulse (${PRICE} USDC on Solana via x402 after free quota). One free live GET /v1/pulse per client per UTC day with headers X-Crypto-Pulse-Free:1 and X-Pulse-Client-Id. Bare GET still returns HTTP 402 for x402 discovery. This MCP tool returns payment requirements + HTTP URL. Free stale preview: get_market_sample.`,
       inputSchema: {
         asset: z
-          .enum(["BTC", "ETH", "SOL", "HYPE"])
+          .enum(["BTC", "ETH", "SOL", "SUI", "HYPE"])
           .optional()
           .describe("Optional: request the single-asset HTTP URL instead of full pulse"),
       },
@@ -169,7 +169,7 @@ export function createPulseMcpServer(req) {
     "get_market_spots",
     {
       description:
-        `PAID live BTC/ETH/SOL/HYPE spot prices only (${SPOTS_PRICE} USDC). Returns payment requirements + HTTP URL for x402. Prefer get_market_pulse when you also need Fear & Greed, funding, or DeFi. Free preview: get_market_sample.`,
+        `PAID live BTC/ETH/SOL/SUI/HYPE spot prices only (${SPOTS_PRICE} USDC). Returns payment requirements + HTTP URL for x402. Prefer get_market_pulse when you also need Fear & Greed, funding, or DeFi. Free preview: get_market_sample.`,
       inputSchema: z.object({}),
       annotations: {
         readOnlyHint: true,
@@ -195,7 +195,7 @@ export function createPulseMcpServer(req) {
     "arena_rules",
     {
       description:
-        "FREE Crypto Pulse Prediction Arena rules: daily UTC rounds for BTC/ETH/SOL close predictions, free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Optional referral program: send ref (the referrer's payout wallet) on your first arena_submit_prediction; referrers earn $0.005 USDC after 3 UTC days of pulse+predict and $0.01 more on the referred bot's first paid /v1/pulse. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
+        "FREE Crypto Pulse Prediction Arena rules: daily UTC close predictions (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE from 2026-11-16), free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Optional referral program: send ref (the referrer's payout wallet) on your first arena_submit_prediction; referrers earn $0.005 USDC after 3 UTC days of pulse+predict and $0.01 more on the referred bot's first paid /v1/pulse. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -255,11 +255,11 @@ export function createPulseMcpServer(req) {
     "arena_submit_prediction",
     {
       description:
-        "FREE: submit or update a signed BTC/ETH/SOL price prediction for the current (or given) arena round. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible. Optional ref (referrer's payout wallet) binds a referral on this bot's first prediction only; the binding never changes. Self-referral and house bots are rejected.",
+        "FREE: submit or update a signed price prediction for the current (or given) arena round. Through 2026-11-15 assets are BTC, ETH, SOL; from 2026-11-16 they are BTC, SOL, SUI, HYPE. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible. Optional ref (referrer's payout wallet) binds a referral on this bot's first prediction only; the binding never changes. Self-referral and house bots are rejected.",
       inputSchema: {
         roundId: z.string().describe("Round id YYYY-MM-DD (settlement midnight UTC)"),
         wallet: z.string().describe("Base58 Solana public key"),
-        asset: z.enum(["BTC", "ETH", "SOL"]),
+        asset: z.enum(["BTC", "ETH", "SOL", "SUI", "HYPE"]).describe("Ticker for this round's asset set. Through 2026-11-15: BTC, ETH, SOL. From 2026-11-16: BTC, SOL, SUI, HYPE (ETH is rejected)."),
         price: z.number().positive().describe("Predicted USD spot at round close"),
         signature: z.string().describe("Base58 ed25519 signature over the canonical message"),
         botName: z.string().max(32).optional().describe("Optional display name"),

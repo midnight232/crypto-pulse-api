@@ -55,6 +55,10 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
   const accepting = current?.acceptingEntries
     ? `<span class="ok">accepting entries</span>`
     : `<span class="locked">not accepting entries</span>`;
+  const assets = current?.assets || [];
+  const assetsLabel = assets.length ? assets.join(" · ") : "—";
+  const assetsNeed = assets.length ? assets.join("+") : "all assets in this round's set";
+  const schedule = rules?.assetSchedule?.text || "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -87,7 +91,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
 <main>
   <h1>Crypto Pulse Prediction Arena</h1>
   <p class="muted">Free skill contest for bots. No purchase necessary. No entry fee. No wagering. Sponsor-funded prizes are paid automatically on-chain from the public prize wallet while funded.</p>
-  <p><span class="pill">${short}</span><span class="pill">Assets: BTC · ETH · SOL</span></p>
+  <p><span class="pill">${short}</span><span class="pill">This round: ${esc(assetsLabel)}</span></p>
 
   <div class="card">
     <h2 style="margin-top:0">Prizes</h2>
@@ -139,7 +143,8 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
       <li>Unique wallets entered: <strong>${esc(current?.uniqueWallets ?? 0)}</strong></li>
       <li>Daily prize if #1 after scoring: <strong>$${esc(prizes.daily.amountUsdc)} USDC</strong></li>
     </ul>
-    <p class="muted">Predict each asset's USD spot at settlement (CoinGecko, same source as this API). Ranked by average absolute % error across all three assets. Ties go to the earlier first submission. Official house bots (<code>official-*</code>) appear on the board with a <span class="house">house</span> label and are <strong>not</strong> prize-eligible. Starting with the round that closes 00:00 UTC on 13 Nov 2026, a bot is prize-eligible only if it also made at least one <code>GET /v1/pulse</code> call on the qualifying UTC day (the 24 hours ending at close), with <code>X-Pulse-Client-Id</code> set to its payout wallet (or a paid call from that wallet).</p>
+    <p class="muted">Predict each asset's USD spot at settlement (CoinGecko, same source as this API). Ranked by average absolute % error across every asset in this round's set (${esc(assetsLabel)}). Ties go to the earlier first submission. Official house bots (<code>official-*</code>) appear on the board with a <span class="house">house</span> label and are <strong>not</strong> prize-eligible. Starting with the round that closes 00:00 UTC on 13 Nov 2026, a bot is prize-eligible only if it also made at least one <code>GET /v1/pulse</code> call on the qualifying UTC day (the 24 hours ending at close), with <code>X-Pulse-Client-Id</code> set to its payout wallet (or a paid call from that wallet).</p>
+    ${schedule ? `<p class="muted">${esc(schedule)}</p>` : ""}
     <p><a href="${esc(baseUrl)}/arena/results">Results</a> · <a href="${esc(baseUrl)}/v1/arena/history">History JSON</a> · <a href="${esc(baseUrl)}/v1/arena/history?format=csv">History CSV</a> · <a href="${esc(baseUrl)}/v1/arena/house-bots">House bots</a></p>
   </div>
 
@@ -148,7 +153,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
     <table>
       <thead><tr><th>#</th><th>Wallet</th><th>Bot</th><th>Avg |error|</th><th>First submit</th></tr></thead>
       <tbody>
-        ${rankRows(leaderboard?.ranking, "No complete entries yet (need BTC+ETH+SOL from the same wallet).")}
+        ${rankRows(leaderboard?.ranking, `No complete entries yet (need ${assetsNeed} from the same wallet).`)}
       </tbody>
     </table>
   </div>
@@ -171,7 +176,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
   <ol>
     <li>Build the canonical message and sign it with your Solana wallet (ed25519). The server never sees private keys.</li>
     <li><code>POST ${esc(baseUrl)}/v1/arena/predict</code> with JSON: <code>roundId</code>, <code>wallet</code>, <code>asset</code>, <code>price</code>, <code>signature</code>, optional <code>botName</code>.</li>
-    <li>Submit once per asset (BTC, ETH, SOL). You may update until cutoff.</li>
+    <li>Submit once per asset in this round's set (${esc(assetsLabel)}). You may update until cutoff.</li>
     <li>To be prize-eligible (from the 2026-11-13 close onward), make at least one <code>GET /v1/pulse</code> during the UTC day that ends at close. Send <code>X-Pulse-Client-Id: &lt;your payout wallet&gt;</code>. The free daily call uses <code>X-Crypto-Pulse-Free: 1</code> plus that header; a paid x402 call also counts when the payer wallet matches or the same client-id header is present.</li>
     <li>Or use MCP tools: <code>arena_rules</code>, <code>arena_current_round</code>, <code>arena_submit_prediction</code>, <code>arena_leaderboard</code>, <code>arena_referrals</code>.</li>
     <li>Optional referral: on your <strong>first</strong> <code>POST /v1/arena/predict</code> (or MCP <code>arena_submit_prediction</code>), send <code>ref</code> equal to your referrer&apos;s payout wallet (or header <code>X-Pulse-Referrer</code>). It binds once and never changes. Self-referral is rejected. House bots cannot refer or be referred.</li>
@@ -186,6 +191,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
       <li>${esc(prizes.payout)}</li>
       <li>From the round closing 00:00 UTC 13 Nov 2026: at least one <code>/v1/pulse</code> call that qualifying UTC day, tied to your payout wallet, is required for prize eligibility. Ineligible bots are still scored and shown as “not prize-eligible: no /v1/pulse call”.</li>
       <li>Referral rewards: <code>$0.005 USDC</code> to a referrer after the referred bot has both a <code>/v1/pulse</code> call (free counts) and an Arena prediction on 3 distinct UTC days, plus <code>$0.01 USDC</code> the first time that bot makes a paid x402 <code>/v1/pulse</code> call. Daily referral payouts are capped at $1 USDC (overflow queues to the next day). Referral payouts never spend funds reserved for remaining daily and weekly prizes.</li>
+      <li>Assets through the 2026-11-09 week (rounds through 2026-11-15) are BTC, ETH, and SOL. Starting with round 2026-11-16 (closes 00:00 UTC 16 Nov 2026 / 6:00 PM CT 15 Nov), assets are BTC, SOL, SUI, and HYPE.</li>
       <li>One serious entry per operator. Obvious multi-wallet farming may be disqualified.</li>
       <li>Void where prohibited. Not financial advice. Skill contest, not gambling.</li>
     </ul>

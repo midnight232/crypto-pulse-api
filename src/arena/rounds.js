@@ -9,10 +9,29 @@
  * Free entry. No stakes. Sponsor-funded prizes paid automatically on-chain while funded.
  */
 
-import { prizePoolLabel, prizePoolShort, prizeSummary } from "./prizes.js";
+import { prizePoolLabel, prizePoolShort, prizeSummary, weekBounds } from "./prizes.js";
 import { describePulseEligibilityRule } from "../pulse-usage.js";
 
-export const ARENA_ASSETS = ["BTC", "ETH", "SOL"];
+/** Assets for rounds through the week of 2026-11-09 (last round 2026-11-15). */
+export const ARENA_ASSETS_LEGACY = ["BTC", "ETH", "SOL"];
+/** Assets starting with the first round of the next weekly (2026-11-16). */
+export const ARENA_ASSETS_V2 = ["BTC", "SOL", "SUI", "HYPE"];
+/** Week whose last round is the last BTC/ETH/SOL round. */
+export const ARENA_ASSETS_CHANGE_AFTER_WEEK = "2026-11-09";
+export const ARENA_COINGECKO_IDS = Object.freeze({
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  SUI: "sui",
+  HYPE: "hyperliquid",
+});
+
+/**
+ * @deprecated Prefer arenaAssetsForRound(roundId). Alias of the legacy set so
+ * older call sites that only touch pre-2026-11-16 rounds keep compiling.
+ */
+export const ARENA_ASSETS = ARENA_ASSETS_LEGACY;
+
 export { prizePoolLabel, prizePoolShort, prizeSummary };
 export const LOCK_HOURS = 12;
 export const OPEN_LEAD_HOURS = 36;
@@ -24,6 +43,56 @@ function pad(n) {
 export function formatRoundId(date) {
   const d = date instanceof Date ? date : new Date(date);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
+function addUtcDays(roundId, days) {
+  const d = new Date(`${roundId}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return formatRoundId(d);
+}
+
+/** First round id of the weekly after ARENA_ASSETS_CHANGE_AFTER_WEEK (2026-11-16). */
+export const ARENA_ASSETS_V2_FIRST_ROUND = addUtcDays(
+  weekBounds(ARENA_ASSETS_CHANGE_AFTER_WEEK).endRoundId,
+  1,
+);
+
+export function arenaAssetsForRound(roundId) {
+  const id = String(roundId || "").trim();
+  if (id && id >= ARENA_ASSETS_V2_FIRST_ROUND) return ARENA_ASSETS_V2.slice();
+  return ARENA_ASSETS_LEGACY.slice();
+}
+
+export function coingeckoIdsForAssets(assets) {
+  return assets.map((a) => {
+    const id = ARENA_COINGECKO_IDS[a];
+    if (!id) throw new Error(`no_coingecko_id_${a}`);
+    return id;
+  });
+}
+
+export function describeArenaAssetSchedule() {
+  const week = weekBounds(ARENA_ASSETS_CHANGE_AFTER_WEEK);
+  const firstMeta = parseRoundId(ARENA_ASSETS_V2_FIRST_ROUND);
+  const lastLegacy = week.endRoundId;
+  const lastMeta = parseRoundId(lastLegacy);
+  return {
+    throughRoundId: lastLegacy,
+    throughWeekId: week.weekId,
+    throughCloseAt: lastMeta.closeAt,
+    legacyAssets: ARENA_ASSETS_LEGACY.slice(),
+    firstNewRoundId: ARENA_ASSETS_V2_FIRST_ROUND,
+    firstNewRoundCloseAt: firstMeta.closeAt,
+    newAssets: ARENA_ASSETS_V2.slice(),
+    coingeckoIds: { ...ARENA_COINGECKO_IDS },
+    fundedDailyNote:
+      "The last funded daily prize round is 2026-11-16 and uses the new BTC, SOL, SUI, HYPE set. The funded weekly (2026-11-09 through 2026-11-15) stays on BTC, ETH, and SOL. The next weekly (week id 2026-11-16) uses the new set.",
+    text:
+      `Through the week of ${week.weekId} (rounds ${week.startRoundId} through ${week.endRoundId}, last close ${lastMeta.closeAt}), assets are BTC, ETH, and SOL. ` +
+      `Starting with round ${ARENA_ASSETS_V2_FIRST_ROUND} (closes ${firstMeta.closeAt} / 6:00 PM CT on 15 Nov 2026), assets are BTC, SOL, SUI, and HYPE ` +
+      `(CoinGecko ids sui and hyperliquid). Already-scored rounds are unchanged. Ranking requires every asset in that round's set. ` +
+      `The last funded daily prize (2026-11-16) uses the new set.`,
+  };
 }
 
 export function parseRoundId(roundId) {
@@ -94,7 +163,8 @@ export function arenaRules() {
     freeEntry: true,
     noPurchaseNecessary: true,
     wagering: false,
-    assets: ARENA_ASSETS,
+    assets: arenaAssetsForRound(currentEntryRound().roundId),
+    assetSchedule: describeArenaAssetSchedule(),
     timing: {
       timezone: "UTC",
       roundId: "UTC date of the settlement midnight (YYYY-MM-DD)",
@@ -113,7 +183,7 @@ export function arenaRules() {
     scoring: {
       metric: "absolute percentage error vs closing spot USD from this service's CoinGecko source",
       formula: "abs(predicted - actual) / actual * 100",
-      rankBy: "average abs % error across BTC, ETH, and SOL (lower is better)",
+      rankBy: "average abs % error across that round's asset set (lower is better). Through 2026-11-15: BTC, ETH, SOL. From 2026-11-16: BTC, SOL, SUI, HYPE.",
       tieBreak: "earliest first submission timestamp among the wallet's assets in that round",
     },
     prizes: {

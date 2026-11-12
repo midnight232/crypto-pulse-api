@@ -7,9 +7,9 @@ import bs58 from "bs58";
 
 export const DEFAULT_BASE = "https://cryptopulseapi.com";
 const COINGECKO =
-  "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd";
-export const ASSET_IDS = { BTC: "bitcoin", ETH: "ethereum", SOL: "solana" };
-export const ASSETS = ["BTC", "ETH", "SOL"];
+  "https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd";
+export const ASSET_IDS = { BTC: "bitcoin", ETH: "ethereum", SOL: "solana", SUI: "sui", HYPE: "hyperliquid" };
+export const ASSETS = ["BTC", "ETH", "SOL", "SUI", "HYPE"];
 
 export function getBase() {
   return (process.env.ARENA_BASE_URL || DEFAULT_BASE).replace(/\/$/, "");
@@ -60,11 +60,13 @@ export function loadKeypair() {
   throw new Error("ARENA_SECRET_KEY_BASE58 must be 32 or 64 bytes");
 }
 
-export async function fetchSpots() {
-  const { status, json } = await httpJson(COINGECKO);
+export async function fetchSpots(assets = ASSETS) {
+  const ids = assets.map((a) => ASSET_IDS[a]).filter(Boolean).join(",");
+  const { status, json } = await httpJson(COINGECKO.replace("{ids}", ids));
   if (status !== 200) throw new Error(`CoinGecko ${status}`);
   const out = {};
-  for (const [asset, id] of Object.entries(ASSET_IDS)) {
+  for (const asset of assets) {
+    const id = ASSET_IDS[asset];
     const usd = json?.[id]?.usd;
     if (!(usd > 0)) throw new Error(`missing ${asset}`);
     out[asset] = Number(usd);
@@ -137,7 +139,7 @@ export async function submitPrediction(body, { base = getBase(), dryRun = false 
   return { httpStatus: status, ...json };
 }
 
-export async function enterNaive({ dryRun = false, assets = ASSETS } = {}) {
+export async function enterNaive({ dryRun = false, assets } = {}) {
   const base = getBase();
   const botName = getBotName();
   const roundJson = await fetchRound(base);
@@ -146,11 +148,13 @@ export async function enterNaive({ dryRun = false, assets = ASSETS } = {}) {
       `round ${roundJson.roundId} not accepting (status=${roundJson.status})`,
     );
   }
-  const spots = await fetchSpots();
+  const roundAssets = (roundJson.assets || ASSETS).filter((a) => ASSET_IDS[a]);
+  const useAssets = assets || roundAssets;
+  const spots = await fetchSpots(useAssets);
   const keyPair = loadKeypair();
   const wallet = bs58.encode(keyPair.publicKey);
   const results = [];
-  for (const asset of assets) {
+  for (const asset of useAssets) {
     const signed = buildSignedPrediction({
       roundId: roundJson.roundId,
       asset,

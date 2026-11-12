@@ -54,7 +54,10 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{text-align:left
 export function renderRoundResultsHtml({ results, baseUrl }) {
   const r = results;
   const closes = r.closes || {};
-  const closeRows = ["BTC", "ETH", "SOL"]
+  const assetList = (r.assets && r.assets.length)
+    ? r.assets
+    : Object.keys(closes).filter((k) => k !== "fetchedAt" && k !== "source");
+  const closeRows = assetList
     .map(
       (a) =>
         `<tr><td>${a}</td><td>${closes[a] != null ? esc(closes[a]) : "—"}</td></tr>`,

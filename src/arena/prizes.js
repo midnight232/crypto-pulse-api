@@ -7,7 +7,7 @@
 export const DAILY_PRIZE_USDC = 1;
 /** Weekly winner prize in USDC (paid automatically on-chain while funded). */
 export const WEEKLY_PRIZE_USDC = 10;
-/** Minimum distinct daily rounds (complete BTC+ETH+SOL) required in a week. */
+/** Minimum distinct daily rounds (complete for that day's asset set) required in a week. */
 export const WEEKLY_MIN_ROUNDS = 5;
 /**
  * First prize week (Monday UTC round id). Covers Nov 2–Nov 8 2026.

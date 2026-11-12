@@ -5,6 +5,9 @@
 import { ArenaStore } from "./store.js";
 import {
   ARENA_ASSETS,
+  arenaAssetsForRound,
+  describeArenaAssetSchedule,
+  ARENA_ASSETS_V2_FIRST_ROUND,
   arenaRules,
   currentEntryRound,
   parseRoundId,
@@ -67,7 +70,8 @@ export function _setStoreForTests(store) {
 
 export function getArenaPublicConfig() {
   return {
-    assets: ARENA_ASSETS,
+    assets: arenaAssetsForRound(currentEntryRound().roundId),
+    assetSchedule: describeArenaAssetSchedule(),
     prize: prizePoolLabel(),
     prizeShort: prizePoolShort(),
     prizes: prizeSummary(),
@@ -95,8 +99,9 @@ export function describeRound(meta, store) {
   }
   const round = store.getRound(meta.roundId);
   const { rows, incomplete } = buildLeaderboard(round);
+  const assets = arenaAssetsForRound(meta.roundId);
   const entryCounts = {};
-  for (const a of ARENA_ASSETS) entryCounts[a] = 0;
+  for (const a of assets) entryCounts[a] = 0;
   const wallets = new Set();
   for (const p of round.predictions) {
     entryCounts[p.asset] = (entryCounts[p.asset] || 0) + 1;
@@ -112,7 +117,7 @@ export function describeRound(meta, store) {
     prizeShort: prizePoolShort(),
     prizes: prizeSummary(),
     dailyPrizeUsdc: DAILY_PRIZE_USDC,
-    assets: ARENA_ASSETS,
+    assets,
     entryCounts,
     uniqueWallets: wallets.size,
     closes: round.closes,
@@ -298,7 +303,8 @@ export function getArenaEntry({ wallet, roundId, botName, baseUrl, req } = {}) {
   const preds = (round.predictions || []).filter((p) => p.wallet === w);
   const displayName = botName || preds[0]?.botName || null;
   const house = preds.some((p) => p.house) || isHouseEntrant({ wallet: w, botName: displayName });
-  const assetsPresent = ARENA_ASSETS.filter((a) => preds.some((p) => p.asset === a));
+  const assets = arenaAssetsForRound(meta.roundId);
+  const assetsPresent = assets.filter((a) => preds.some((p) => p.asset === a));
   const payload = {
     roundId: meta.roundId,
     openAt: meta.openAt,
@@ -308,8 +314,9 @@ export function getArenaEntry({ wallet, roundId, botName, baseUrl, req } = {}) {
     wallet: w,
     botName: displayName,
     house,
+    assets,
     assetsPresent,
-    complete: ARENA_ASSETS.every((a) => assetsPresent.includes(a)),
+    complete: assets.every((a) => assetsPresent.includes(a)),
     predictions: preds.map((p) => ({
       asset: p.asset,
       price: p.price,
@@ -703,6 +710,7 @@ export function getRoundResults(roundId) {
     cutoffAt: meta.cutoffAt,
     closeAt: meta.closeAt,
     status: round.status,
+    assets: arenaAssetsForRound(meta.roundId),
     closes: round.closes,
     scoredAt: round.scoredAt,
     source: round.closes?.source || null,
@@ -813,6 +821,9 @@ export async function triggerHouseBotEntries() {
 // Re-exports useful for scripts/MCP
 export {
   ARENA_ASSETS,
+  arenaAssetsForRound,
+  describeArenaAssetSchedule,
+  ARENA_ASSETS_V2_FIRST_ROUND,
   buildCanonicalMessage,
   normalizePrice,
   normalizeAsset,

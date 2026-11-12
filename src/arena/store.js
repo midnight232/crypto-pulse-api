@@ -96,7 +96,7 @@ export class ArenaStore {
       cutoffAt: meta.cutoffAt,
       closeAt: meta.closeAt,
       status: "open", // open | locked | scored
-      closes: null, // { BTC, ETH, SOL, fetchedAt, source } after score
+      closes: null, // { [asset]: number, fetchedAt, source } after score
       scoredAt: null,
       predictions: [], // { wallet, botName, asset, price, message, signature, submittedAt, updatedAt, absPctError }
     };

@@ -1,6 +1,6 @@
 {
   "name": "crypto-pulse-api",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "x402 paid crypto market pulse for AI agents: one call replaces four (spots, Fear & Greed, funding, DeFi) + summary; free sample + MCP",
   "type": "module",
   "main": "src/server.js",
@@ -22,7 +22,8 @@
     "test:arena": "node scripts/test-arena.js",
     "test:house": "node scripts/test-house-and-free.js",
     "test:pulse-elig": "node scripts/test-pulse-eligibility.js",
-    "test:referrals": "node scripts/test-referrals.js"
+    "test:referrals": "node scripts/test-referrals.js",
+    "test:arena-assets": "node scripts/test-arena-assets.js"
   },
   "engines": {
     "node": ">=20"

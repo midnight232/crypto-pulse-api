@@ -2,7 +2,7 @@
 """
 Crypto Pulse Prediction Arena — sample entry bot.
 
-Fetches current BTC/ETH/SOL USD from CoinGecko (public, no key), applies a
+Fetches current USD spots from CoinGecko for this round's asset set, applies a
 naive "hold last price" prediction, signs with a Solana ed25519 key, and
 POSTs to the free Arena API.
 
@@ -39,11 +39,10 @@ from nacl.signing import SigningKey
 
 DEFAULT_BASE = "https://cryptopulseapi.com"
 COINGECKO = (
-    "https://api.coingecko.com/api/v3/simple/price"
-    "?ids=bitcoin,ethereum,solana&vs_currencies=usd"
+    "https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd"
 )
-ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana"}
-ASSETS = ("BTC", "ETH", "SOL")
+ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "SUI": "sui", "HYPE": "hyperliquid"}
+ALL_ASSETS = ("BTC", "ETH", "SOL", "SUI", "HYPE")
 
 
 def http_json(
@@ -53,7 +52,7 @@ def http_json(
     extra_headers: dict | None = None,
 ) -> tuple[int, dict]:
     data = None
-    headers = {"Accept": "application/json", "User-Agent": "crypto-pulse-arena-sample-bot/0.8"}
+    headers = {"Accept": "application/json", "User-Agent": "crypto-pulse-arena-sample-bot/0.10"}
     if extra_headers:
         headers.update(extra_headers)
     if body is not None:
@@ -97,12 +96,14 @@ def load_signing_key() -> SigningKey:
     raise SystemExit("ARENA_SECRET_KEY_BASE58 must decode to 32 or 64 bytes")
 
 
-def fetch_spots() -> dict[str, float]:
-    status, data = http_json(COINGECKO)
+def fetch_spots(assets: list[str]) -> dict[str, float]:
+    ids = ",".join(ASSET_IDS[a] for a in assets)
+    status, data = http_json(COINGECKO.format(ids=ids))
     if status != 200:
         raise SystemExit(f"CoinGecko failed ({status}): {data}")
     out = {}
-    for asset, cid in ASSET_IDS.items():
+    for asset in assets:
+        cid = ASSET_IDS[asset]
         usd = data.get(cid, {}).get("usd")
         if not isinstance(usd, (int, float)) or usd <= 0:
             raise SystemExit(f"missing {asset} usd on CoinGecko: {data}")
@@ -141,7 +142,7 @@ def claim_free_pulse(base: str, wallet: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Crypto Pulse Arena sample bot")
     parser.add_argument("--dry-run", action="store_true", help="Do not POST; print payload only")
-    parser.add_argument("--asset", choices=ASSETS, help="Submit only one asset (default: all)")
+    parser.add_argument("--asset", choices=ALL_ASSETS, help="Submit only one asset (default: this round's full set)")
     args = parser.parse_args()
 
     base = (os.environ.get("ARENA_BASE_URL") or DEFAULT_BASE).rstrip("/")
@@ -166,7 +167,10 @@ def main() -> int:
         return 1
 
     round_id = round_json["roundId"]
-    spots = fetch_spots()
+    round_assets = [a for a in (round_json.get("assets") or list(ALL_ASSETS)) if a in ASSET_IDS]
+    if not round_assets:
+        raise SystemExit(f"round {round_id} listed no recognized assets")
+    spots = fetch_spots(round_assets)
     preds = naive_predict(spots)
     sk = load_signing_key()
     wallet = base58.b58encode(bytes(sk.verify_key)).decode("ascii")
@@ -185,7 +189,7 @@ def main() -> int:
     else:
         pulse_claim = claim_free_pulse(base, wallet)
 
-    assets = [args.asset] if args.asset else list(ASSETS)
+    assets = [args.asset] if args.asset else list(round_assets)
     results = []
     for asset in assets:
         price = preds[asset]

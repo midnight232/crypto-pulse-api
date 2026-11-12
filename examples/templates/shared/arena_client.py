@@ -11,12 +11,9 @@ import base58
 from nacl.signing import SigningKey
 
 DEFAULT_BASE = "https://cryptopulseapi.com"
-COINGECKO = (
-    "https://api.coingecko.com/api/v3/simple/price"
-    "?ids=bitcoin,ethereum,solana&vs_currencies=usd"
-)
-ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana"}
-ASSETS = ("BTC", "ETH", "SOL")
+COINGECKO = "https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd"
+ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "SUI": "sui", "HYPE": "hyperliquid"}
+ASSETS = ("BTC", "ETH", "SOL", "SUI", "HYPE")
 
 
 def http_json(url: str, method: str = "GET", body: dict | None = None) -> tuple[int, Any]:
@@ -66,12 +63,14 @@ def load_signing_key() -> SigningKey:
     raise SystemExit("ARENA_SECRET_KEY_BASE58 must decode to 32 or 64 bytes")
 
 
-def fetch_spots() -> dict[str, float]:
-    status, data = http_json(COINGECKO)
+def fetch_spots(assets: tuple[str, ...] | list[str] = ASSETS) -> dict[str, float]:
+    ids = ",".join(ASSET_IDS[a] for a in assets)
+    status, data = http_json(COINGECKO.format(ids=ids))
     if status != 200:
         raise SystemExit(f"CoinGecko failed ({status}): {data}")
     out: dict[str, float] = {}
-    for asset, cid in ASSET_IDS.items():
+    for asset in assets:
+        cid = ASSET_IDS[asset]
         usd = data.get(cid, {}).get("usd")
         if not isinstance(usd, (int, float)) or usd <= 0:
             raise SystemExit(f"missing {asset} on CoinGecko")
@@ -156,8 +155,8 @@ def submit_prediction(body: dict, *, base: str | None = None, dry_run: bool = Fa
     return {"httpStatus": code, **(resp if isinstance(resp, dict) else {"raw": resp})}
 
 
-def enter_naive(*, dry_run: bool = False, assets: tuple[str, ...] = ASSETS) -> dict:
-    """Hold-last-price entry for BTC/ETH/SOL. Replace prediction logic as needed."""
+def enter_naive(*, dry_run: bool = False, assets: tuple[str, ...] | None = None) -> dict:
+    """Hold-last-price entry for this round's asset set. Replace prediction logic as needed."""
     base = get_base()
     bot_name = get_bot_name()
     round_json = fetch_round(base)
@@ -166,11 +165,13 @@ def enter_naive(*, dry_run: bool = False, assets: tuple[str, ...] = ASSETS) -> d
             f"round {round_json.get('roundId')} not accepting entries "
             f"(status={round_json.get('status')})"
         )
-    spots = fetch_spots()
+    round_assets = tuple(a for a in (round_json.get("assets") or ASSETS) if a in ASSET_IDS)
+    use_assets = assets or round_assets
+    spots = fetch_spots(use_assets)
     sk = load_signing_key()
     wallet = base58.b58encode(bytes(sk.verify_key)).decode("ascii")
     results = []
-    for asset in assets:
+    for asset in use_assets:
         signed = build_signed_prediction(
             round_id=round_json["roundId"],
             asset=asset,

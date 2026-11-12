@@ -8,9 +8,8 @@ import path from "path";
 import nacl from "tweetnacl";
 import { base58 } from "@scure/base";
 import { ROOT } from "../config.js";
-import { ARENA_ASSETS } from "./rounds.js";
+import { arenaAssetsForRound, coingeckoIdsForAssets, ARENA_COINGECKO_IDS, currentEntryRound } from "./rounds.js";
 import { buildCanonicalMessage, normalizePrice } from "./verify.js";
-import { currentEntryRound } from "./rounds.js";
 
 export const HOUSE_BOT_PREFIX = "official-";
 
@@ -151,19 +150,26 @@ export function ensureHouseWalletsFile({ force = false } = {}) {
   return { path: filePath, created: true, bots: listHouseWalletsPublic(), count: bots.length };
 }
 
-async function fetchSpotsWithChange() {
+async function fetchSpotsWithChange(assets) {
+  const ids = coingeckoIdsForAssets(assets);
   const url =
-    "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true";
+    `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(",")}&vs_currencies=usd&include_24hr_change=true`;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12_000);
   try {
     const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    const spots = {};
+    for (const a of assets) {
+      const id = ARENA_COINGECKO_IDS[a];
+      spots[a] = {
+        usd: Number(data[id]?.usd),
+        change24hPct: Number(data[id]?.usd_24h_change),
+      };
+    }
     return {
-      BTC: { usd: Number(data.bitcoin?.usd), change24hPct: Number(data.bitcoin?.usd_24h_change) },
-      ETH: { usd: Number(data.ethereum?.usd), change24hPct: Number(data.ethereum?.usd_24h_change) },
-      SOL: { usd: Number(data.solana?.usd), change24hPct: Number(data.solana?.usd_24h_change) },
+      ...spots,
       source: url,
       fetchedAt: new Date().toISOString(),
     };
@@ -213,13 +219,14 @@ export async function runHouseBotEntries({
   }
 
   const meta = currentEntryRound(now);
+  const assets = arenaAssetsForRound(meta.roundId);
   if (meta.lifecycle !== "open") {
     return { ok: true, skipped: true, reason: "round_not_open", roundId: meta.roundId, lifecycle: meta.lifecycle };
   }
 
   let spots;
   try {
-    spots = await fetchSpots();
+    spots = await fetchSpots(assets);
   } catch (err) {
     return { ok: false, reason: "spots_fetch_failed", error: String(err?.message || err) };
   }
@@ -251,7 +258,7 @@ export async function runHouseBotEntries({
         const have = new Set(
           round.predictions.filter((p) => p.wallet === wallet).map((p) => p.asset),
         );
-        if (ARENA_ASSETS.every((a) => have.has(a))) {
+        if (assets.every((a) => have.has(a))) {
           results.push({ botName: def.botName, wallet, ok: true, already: true, roundId: meta.roundId });
           continue;
         }
@@ -259,7 +266,7 @@ export async function runHouseBotEntries({
     }
 
     const assetResults = [];
-    for (const asset of ARENA_ASSETS) {
+    for (const asset of assets) {
       try {
         const price = predictForStrategy(def.id, asset, spots);
         const { canonical } = normalizePrice(price);
