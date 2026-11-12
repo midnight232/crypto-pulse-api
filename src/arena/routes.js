@@ -21,7 +21,7 @@ import {
   startArenaScorer,
   submitPrediction,
   getArenaEntry,
-  getReferrerDashboard,
+  getReferrerDashboardForRequest,
   deleteReferralAdmin,
   decorateWithPrizeEligibility,
   applyPrizeEligibilityHeaders,
@@ -211,7 +211,7 @@ export function mountArena(app) {
   app.get("/v1/arena/referrals", (req, res) => {
     try {
       const wallet = typeof req.query.wallet === "string" ? req.query.wallet.trim() : "";
-      res.json(getReferrerDashboard(wallet));
+      res.json(getReferrerDashboardForRequest(wallet));
     } catch (err) {
       res.status(err.status || 400).json({ error: err.code || "bad_request", message: err.message });
     }

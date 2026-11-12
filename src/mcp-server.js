@@ -32,7 +32,7 @@ import {
   submitPrediction,
   signingHelp,
   decorateWithPrizeEligibility,
-  getReferrerDashboard,
+  getReferrerDashboardForRequest,
 } from "./arena/index.js";
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
@@ -306,7 +306,7 @@ export function createPulseMcpServer(req) {
     },
     async ({ wallet }) => {
       try {
-        const result = getReferrerDashboard(wallet);
+        const result = getReferrerDashboardForRequest(wallet);
         return {
           content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
           structuredContent: result,

@@ -568,6 +568,10 @@ export function deleteReferralAdmin({ wallet }) {
   return { ok: true, deleted, wallet: w };
 }
 
+export function getReferrerDashboardForRequest(wallet) {
+  return getReferrerDashboard(wallet, { arenaStore: getStore() });
+}
+
 export { getReferrerDashboard, getReferralView, processReferralPayouts };
 
 export async function runDueScoring() {
