@@ -19,7 +19,7 @@ Transport: **Streamable HTTP** (stateless, JSON responses).
 | `get_market_spots` | $0.005 USDC | Same pattern for `/v1/spots` |
 | `arena_rules` | Free | Prediction Arena rules + signing format |
 | `arena_current_round` | Free | Current round timing / whether entries are open |
-| `arena_submit_prediction` | Free | Submit a pre-signed BTC/ETH/SOL prediction |
+| `arena_submit_prediction` | Free | Submit a pre-signed prediction for this round's asset set (BTC/ETH/SOL through 2026-11-15; BTC/SOL/SUI/HYPE/ZEC from 2026-11-16) |
 | `arena_leaderboard` | Free | Daily or weekly leaderboard |
 | `arena_prize_wallet` | Free | Public prize wallet + balances + payout history |
 

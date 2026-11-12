@@ -39,7 +39,7 @@ function field(ok, value, source, error) {
 async function spots() {
   try {
     const data = await fetchJson(
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,sui,hyperliquid&vs_currencies=usd&include_24hr_change=true",
+      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,sui,hyperliquid,zcash&vs_currencies=usd&include_24hr_change=true",
     );
     return field(
       true,
@@ -50,6 +50,7 @@ async function spots() {
           SOL: data.solana?.usd ?? null,
           SUI: data.sui?.usd ?? null,
           HYPE: data.hyperliquid?.usd ?? null,
+          ZEC: data.zcash?.usd ?? null,
         },
         change24hPct: {
           BTC: data.bitcoin?.usd_24h_change ?? null,
@@ -57,6 +58,7 @@ async function spots() {
           SOL: data.solana?.usd_24h_change ?? null,
           SUI: data.sui?.usd_24h_change ?? null,
           HYPE: data.hyperliquid?.usd_24h_change ?? null,
+          ZEC: data.zcash?.usd_24h_change ?? null,
         },
       },
       "https://api.coingecko.com/api/v3/simple/price",
@@ -96,7 +98,7 @@ async function hyperliquidFunding() {
     });
     const universe = data?.[0]?.universe || [];
     const ctxs = data?.[1] || [];
-    const want = ["BTC", "ETH", "SOL", "SUI", "HYPE"];
+    const want = ["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"];
     const rates = {};
     for (const name of want) {
       const i = universe.findIndex((u) => u.name === name);
@@ -183,7 +185,7 @@ async function fetchFullPulseRaw() {
 }
 
 /**
- * Build full pulse, optionally filtered to one asset ticker (BTC/ETH/SOL/SUI/HYPE).
+ * Build full pulse, optionally filtered to one asset ticker (BTC/ETH/SOL/SUI/HYPE/ZEC/ZEC).
  * Includes top-level `summary` (plain English) and `signals` (deterministic).
  */
 export async function buildPulse({ asset } = {}) {

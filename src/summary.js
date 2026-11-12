@@ -31,7 +31,7 @@ function fundingBiasFromRates(rates) {
     return { fundingBias: "unknown", fundingAvg: null };
   }
   const vals = [];
-  for (const k of ["BTC", "ETH", "SOL", "SUI", "HYPE"]) {
+  for (const k of ["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"]) {
     const f = rates[k]?.funding;
     if (f != null && Number.isFinite(Number(f))) vals.push(Number(f));
   }
@@ -46,7 +46,7 @@ function fundingBiasFromRates(rates) {
 function spotsPhrase(spotPrices) {
   if (!spotPrices?.ok || !spotPrices.usd) return null;
   const parts = [];
-  for (const t of ["BTC", "ETH", "SOL", "SUI", "HYPE"]) {
+  for (const t of ["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"]) {
     const p = fmtUsd(spotPrices.usd[t]);
     if (!p) continue;
     const ch = fmtPct(spotPrices.change24hPct?.[t]);

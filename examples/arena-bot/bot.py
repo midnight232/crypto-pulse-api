@@ -41,8 +41,8 @@ DEFAULT_BASE = "https://cryptopulseapi.com"
 COINGECKO = (
     "https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd"
 )
-ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "SUI": "sui", "HYPE": "hyperliquid"}
-ALL_ASSETS = ("BTC", "ETH", "SOL", "SUI", "HYPE")
+ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "SUI": "sui", "HYPE": "hyperliquid", "ZEC": "zcash"}
+ALL_ASSETS = ("BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC")
 
 
 def http_json(

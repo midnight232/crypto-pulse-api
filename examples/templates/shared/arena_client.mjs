@@ -9,7 +9,7 @@ export const DEFAULT_BASE = "https://cryptopulseapi.com";
 const COINGECKO =
   "https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd";
 export const ASSET_IDS = { BTC: "bitcoin", ETH: "ethereum", SOL: "solana", SUI: "sui", HYPE: "hyperliquid" };
-export const ASSETS = ["BTC", "ETH", "SOL", "SUI", "HYPE"];
+export const ASSETS = ["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"];
 
 export function getBase() {
   return (process.env.ARENA_BASE_URL || DEFAULT_BASE).replace(/\/$/, "");

@@ -23,7 +23,7 @@ MCP: `POST /mcp` (Streamable HTTP)
 One call replaces four: spots + Fear & Greed + Hyperliquid funding + DefiLlama TVL/yields, with a ready-made summary. x402 USDC on Solana. Free sample + MCP.
 
 **Long description:**
-One call replaces four crypto data fetches for AI agents: (1) BTC/ETH/SOL/HYPE spot USD + 24h change (CoinGecko), (2) Crypto Fear & Greed (alternative.me), (3) Hyperliquid perp funding + mark + open interest, (4) DefiLlama total TVL + top stable yields — plus a plain-English summary line and deterministic signals. Keyless upstreams, 60s live cache, pay-per-request USDC on Solana via x402. Typical single-purpose x402 market tools on Solana list around $0.001–$0.005 each; this $0.02 bundle is usually cheaper than paying four of them when you need the full brief. Free stale sample at GET /v1/sample; MCP tools at POST /mcp.
+One call replaces four crypto data fetches for AI agents: (1) BTC/ETH/SOL/SUI/HYPE/ZEC spot USD + 24h change (CoinGecko), (2) Crypto Fear & Greed (alternative.me), (3) Hyperliquid perp funding + mark + open interest, (4) DefiLlama total TVL + top stable yields — plus a plain-English summary line and deterministic signals. Keyless upstreams, 60s live cache, pay-per-request USDC on Solana via x402. Typical single-purpose x402 market tools on Solana list around $0.001–$0.005 each; this $0.02 bundle is usually cheaper than paying four of them when you need the full brief. Free stale sample at GET /v1/sample; MCP tools at POST /mcp.
 
 **Tags / categories:**
 `crypto`, `market-data`, `solana`, `agents`, `x402`, `fear-greed`, `funding`, `defi`, `hyperliquid`, `coingecko`, `defillama`, `btc`, `eth`, `sol`, `mcp`, `summary`

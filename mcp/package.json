@@ -1,6 +1,6 @@
 {
   "name": "crypto-pulse-mcp",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "description": "Local stdio MCP proxy for Crypto Pulse (points at the live HTTPS API). Not published to npm.",
   "type": "module",

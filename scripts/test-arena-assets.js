@@ -29,15 +29,15 @@ assert(weekBounds("2026-11-09").endRoundId === "2026-11-15", "weekly end is 2026
 assert(arenaAssetsForRound("2026-11-15").join(",") === "BTC,ETH,SOL", "last weekly day stays legacy");
 assert(arenaAssetsForRound("2026-11-13").join(",") === "BTC,ETH,SOL", "open 2026-11-13 stays legacy");
 assert(arenaAssetsForRound("2026-11-01").join(",") === "BTC,ETH,SOL", "older rounds stay legacy");
-assert(arenaAssetsForRound("2026-11-16").join(",") === "BTC,SOL,SUI,HYPE", "2026-11-16 is the new set");
-assert(arenaAssetsForRound("2026-11-17").join(",") === "BTC,SOL,SUI,HYPE", "later rounds use new set");
+assert(arenaAssetsForRound("2026-11-16").join(",") === "BTC,SOL,SUI,HYPE,ZEC", "2026-11-16 is the new set");
+assert(arenaAssetsForRound("2026-11-17").join(",") === "BTC,SOL,SUI,HYPE,ZEC", "later rounds use new set");
 assert(!arenaAssetsForRound("2026-11-16").includes("ETH"), "ETH is not in the new set");
 
 const schedule = describeArenaAssetSchedule();
 assert(schedule.throughRoundId === "2026-11-15", "schedule through");
 assert(schedule.firstNewRoundId === "2026-11-16", "schedule first");
 assert(schedule.firstNewRoundCloseAt === "2026-11-16T00:00:00.000Z", "close 00:00 UTC Nov 16 = 6 PM CT Nov 15");
-assert(schedule.coingeckoIds.SUI === "sui" && schedule.coingeckoIds.HYPE === "hyperliquid", "coingecko ids");
+assert(schedule.coingeckoIds.SUI === "sui" && schedule.coingeckoIds.HYPE === "hyperliquid" && schedule.coingeckoIds.ZEC === "zcash", "coingecko ids");
 
 assert(normalizeAsset("BTC", "2026-11-13") === "BTC", "legacy BTC ok");
 assert(normalizeAsset("ETH", "2026-11-15") === "ETH", "legacy ETH ok");
@@ -47,9 +47,13 @@ assert(threw, "SUI rejected on legacy round");
 threw = false;
 try { normalizeAsset("HYPE", "2026-11-15"); } catch (err) { threw = err.code === "invalid_asset"; }
 assert(threw, "HYPE rejected on legacy round");
+threw = false;
+try { normalizeAsset("ZEC", "2026-11-15"); } catch (err) { threw = err.code === "invalid_asset"; }
+assert(threw, "ZEC rejected on legacy round");
 
 assert(normalizeAsset("SUI", "2026-11-16") === "SUI", "SUI accepted on new round");
 assert(normalizeAsset("HYPE", "2026-11-16") === "HYPE", "HYPE accepted on new round");
+assert(normalizeAsset("ZEC", "2026-11-16") === "ZEC", "ZEC accepted on new round");
 assert(normalizeAsset("SOL", "2026-11-16") === "SOL", "SOL still accepted");
 threw = false;
 try { normalizeAsset("ETH", "2026-11-16"); } catch (err) { threw = err.code === "invalid_asset"; }
@@ -70,12 +74,17 @@ function signPred(roundId, asset, price) {
 }
 const suiOk = signPred("2026-11-16", "SUI", 0.82);
 assert(suiOk.asset === "SUI", "signed SUI verifies");
+const zecOk = signPred("2026-11-16", "ZEC", 400);
+assert(zecOk.asset === "ZEC", "signed ZEC verifies");
 threw = false;
 try { signPred("2026-11-16", "ETH", 2000); } catch (err) { threw = err.code === "invalid_asset"; }
 assert(threw, "signed ETH rejected on 2026-11-16");
 threw = false;
 try { signPred("2026-11-15", "SUI", 0.82); } catch (err) { threw = err.code === "invalid_asset"; }
 assert(threw, "signed SUI rejected on 2026-11-15");
+threw = false;
+try { signPred("2026-11-15", "ZEC", 400); } catch (err) { threw = err.code === "invalid_asset"; }
+assert(threw, "signed ZEC rejected on 2026-11-15");
 
 // Leaderboard: a closed legacy round stays complete with BTC+ETH+SOL only.
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "arena-assets-"));
@@ -118,11 +127,11 @@ assert(!legacyBoard.rows[0].perAsset.SUI, "legacy perAsset has no SUI");
 const newBoard = seedRound(
   "2026-11-16",
   ARENA_ASSETS_V2,
-  { BTC: 74000, SOL: 83, SUI: 0.82, HYPE: 72 },
-  { BTC: 74100, SOL: 84, SUI: 0.83, HYPE: 71 },
+  { BTC: 74000, SOL: 83, SUI: 0.82, HYPE: 72, ZEC: 400 },
+  { BTC: 74100, SOL: 84, SUI: 0.83, HYPE: 71, ZEC: 405 },
 );
 assert(newBoard.rows.length === 1, "new-set complete entry ranks");
-assert(newBoard.rows[0].perAsset.SUI && newBoard.rows[0].perAsset.HYPE, "new perAsset has SUI and HYPE");
+assert(newBoard.rows[0].perAsset.SUI && newBoard.rows[0].perAsset.HYPE && newBoard.rows[0].perAsset.ZEC, "new perAsset has SUI, HYPE, and ZEC");
 assert(!newBoard.rows[0].perAsset.ETH, "new perAsset has no ETH");
 
 // ETH-only on a new-set round is incomplete, not a ranked entry.
@@ -136,4 +145,4 @@ assert(mixed.rows.some((r) => r.wallet === wallet), "complete new-set wallet sti
 assert(!mixed.rows.some((r) => r.wallet === ethWallet), "ETH-only is not ranked after the switch");
 assert(mixed.incomplete.some((r) => r.wallet === ethWallet && r.missing.includes("SUI")), "ETH-only missing new assets");
 
-console.log("ok: arena asset schedule, legacy history complete, 2026-11-16 accepts SUI/HYPE and rejects ETH");
+console.log("ok: arena asset schedule, legacy history complete, 2026-11-16 accepts SUI/HYPE/ZEC and rejects ETH");

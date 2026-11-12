@@ -19,7 +19,7 @@ const BASE = (process.env.PUBLIC_BASE_URL || "https://cryptopulseapi.com").repla
   /\/$/,
   "",
 );
-const VERSION = "0.10.0";
+const VERSION = "0.10.1";
 
 async function fetchJson(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
@@ -76,7 +76,7 @@ server.registerTool(
       "PAID live full pulse ($0.02 USDC on Solana via x402). Returns payment requirements and the HTTP URL — pay via x402 HTTP, then GET. Prefer get_market_sample for a free preview.",
     inputSchema: {
       asset: z
-        .enum(["BTC", "ETH", "SOL", "HYPE"])
+        .enum(["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"])
         .optional()
         .describe("Optional single-asset path"),
     },

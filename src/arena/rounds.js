@@ -15,7 +15,7 @@ import { describePulseEligibilityRule } from "../pulse-usage.js";
 /** Assets for rounds through the week of 2026-11-09 (last round 2026-11-15). */
 export const ARENA_ASSETS_LEGACY = ["BTC", "ETH", "SOL"];
 /** Assets starting with the first round of the next weekly (2026-11-16). */
-export const ARENA_ASSETS_V2 = ["BTC", "SOL", "SUI", "HYPE"];
+export const ARENA_ASSETS_V2 = ["BTC", "SOL", "SUI", "HYPE", "ZEC"];
 /** Week whose last round is the last BTC/ETH/SOL round. */
 export const ARENA_ASSETS_CHANGE_AFTER_WEEK = "2026-11-09";
 export const ARENA_COINGECKO_IDS = Object.freeze({
@@ -24,6 +24,7 @@ export const ARENA_COINGECKO_IDS = Object.freeze({
   SOL: "solana",
   SUI: "sui",
   HYPE: "hyperliquid",
+  ZEC: "zcash",
 });
 
 /**
@@ -86,11 +87,11 @@ export function describeArenaAssetSchedule() {
     newAssets: ARENA_ASSETS_V2.slice(),
     coingeckoIds: { ...ARENA_COINGECKO_IDS },
     fundedDailyNote:
-      "The last funded daily prize round is 2026-11-16 and uses the new BTC, SOL, SUI, HYPE set. The funded weekly (2026-11-09 through 2026-11-15) stays on BTC, ETH, and SOL. The next weekly (week id 2026-11-16) uses the new set.",
+      "The last funded daily prize round is 2026-11-16 and uses the new BTC, SOL, SUI, HYPE, ZEC set. The funded weekly (2026-11-09 through 2026-11-15) stays on BTC, ETH, and SOL. The next weekly (week id 2026-11-16) uses the new set.",
     text:
       `Through the week of ${week.weekId} (rounds ${week.startRoundId} through ${week.endRoundId}, last close ${lastMeta.closeAt}), assets are BTC, ETH, and SOL. ` +
-      `Starting with round ${ARENA_ASSETS_V2_FIRST_ROUND} (closes ${firstMeta.closeAt} / 6:00 PM CT on 15 Nov 2026), assets are BTC, SOL, SUI, and HYPE ` +
-      `(CoinGecko ids sui and hyperliquid). Already-scored rounds are unchanged. Ranking requires every asset in that round's set. ` +
+      `Starting with round ${ARENA_ASSETS_V2_FIRST_ROUND} (closes ${firstMeta.closeAt} / 6:00 PM CT on 15 Nov 2026), assets are BTC, SOL, SUI, HYPE, and ZEC ` +
+      `(CoinGecko ids sui, hyperliquid, and zcash). Already-scored rounds are unchanged. Ranking requires every asset in that round's set. ` +
       `The last funded daily prize (2026-11-16) uses the new set.`,
   };
 }
@@ -183,7 +184,7 @@ export function arenaRules() {
     scoring: {
       metric: "absolute percentage error vs closing spot USD from this service's CoinGecko source",
       formula: "abs(predicted - actual) / actual * 100",
-      rankBy: "average abs % error across that round's asset set (lower is better). Through 2026-11-15: BTC, ETH, SOL. From 2026-11-16: BTC, SOL, SUI, HYPE.",
+      rankBy: "average abs % error across that round's asset set (lower is better). Through 2026-11-15: BTC, ETH, SOL. From 2026-11-16: BTC, SOL, SUI, HYPE, ZEC.",
       tieBreak: "earliest first submission timestamp among the wallet's assets in that round",
     },
     prizes: {

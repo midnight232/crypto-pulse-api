@@ -76,7 +76,7 @@ function maybeRefreshReferralAfterPulse(rec) {
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.10.0";
+const VERSION = "0.10.1";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -105,8 +105,8 @@ const pulseOutputExample = {
   },
   spotPrices: {
     ok: true,
-    usd: { BTC: 77000, ETH: 2200, SOL: 96, SUI: 1.2, HYPE: 90 },
-    change24hPct: { BTC: -1.2, ETH: 0.5, SOL: 2.1, SUI: 0.4, HYPE: -0.8 },
+    usd: { BTC: 77000, ETH: 2200, SOL: 96, SUI: 1.2, HYPE: 90, ZEC: 400 },
+    change24hPct: { BTC: -1.2, ETH: 0.5, SOL: 2.1, SUI: 0.4, HYPE: -0.8, ZEC: 1.5 },
   },
   fearAndGreed: { ok: true, value: 30, classification: "Fear" },
   hyperliquidFunding: {
@@ -117,6 +117,7 @@ const pulseOutputExample = {
       SOL: { funding: 0.00002, markPx: 96, openInterest: 4000 },
       SUI: { funding: 0.00001, markPx: 1.2, openInterest: 1500 },
       HYPE: { funding: 0.00001, markPx: 90, openInterest: 2000 },
+      ZEC: { funding: 0.00001, markPx: 400, openInterest: 3000 },
     },
   },
   defi: {
@@ -154,7 +155,7 @@ const bazaarPulse = declareDiscoveryExtension({
         },
         spotPrices: {
           type: "object",
-          description: "BTC/ETH/SOL/SUI/HYPE USD + 24h % change from CoinGecko",
+          description: "BTC/ETH/SOL/SUI/HYPE/ZEC/ZEC USD + 24h % change from CoinGecko",
         },
         fearAndGreed: {
           type: "object",
@@ -162,7 +163,7 @@ const bazaarPulse = declareDiscoveryExtension({
         },
         hyperliquidFunding: {
           type: "object",
-          description: "Perp funding, markPx, openInterest for BTC/ETH/SOL/SUI/HYPE",
+          description: "Perp funding, markPx, openInterest for BTC/ETH/SOL/SUI/HYPE/ZEC/ZEC",
         },
         defi: {
           type: "object",
@@ -190,8 +191,8 @@ const bazaarAsset = declareDiscoveryExtension({
     properties: {
       asset: {
         type: "string",
-        description: "Ticker path param: BTC, ETH, SOL, SUI, or HYPE",
-        enum: ["BTC", "ETH", "SOL", "SUI", "HYPE"],
+        description: "Ticker path param: BTC, ETH, SOL, SUI, HYPE, or ZEC",
+        enum: ["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"],
       },
     },
     required: ["asset"],
@@ -233,7 +234,7 @@ const bazaarSpots = declareDiscoveryExtension({
     example: {
       service: "crypto-pulse-api",
       generatedAt: "2026-10-30T13:00:00.000Z",
-      summary: "BTC $77.0k (-1.2% 24h), ETH $2.20k (+0.5% 24h), SOL $96.00 (+2.1% 24h), SUI $1.20 (+0.4% 24h), HYPE $90.00 (-0.8% 24h).",
+      summary: "BTC $77.0k (-1.2% 24h), ETH $2.20k (+0.5% 24h), SOL $96.00 (+2.1% 24h), SUI $1.20 (+0.4% 24h), HYPE $90.00 (-0.8% 24h), ZEC $400.00 (+1.5% 24h).",
       signals: {
         sentiment: null,
         sentimentValue: null,
@@ -242,8 +243,8 @@ const bazaarSpots = declareDiscoveryExtension({
       },
       spotPrices: {
         ok: true,
-        usd: { BTC: 77000, ETH: 2200, SOL: 96, SUI: 1.2, HYPE: 90 },
-        change24hPct: { BTC: -1.2, ETH: 0.5, SOL: 2.1, SUI: 0.4, HYPE: -0.8 },
+        usd: { BTC: 77000, ETH: 2200, SOL: 96, SUI: 1.2, HYPE: 90, ZEC: 400 },
+        change24hPct: { BTC: -1.2, ETH: 0.5, SOL: 2.1, SUI: 0.4, HYPE: -0.8, ZEC: 1.5 },
       },
     },
     schema: {
@@ -255,7 +256,7 @@ const bazaarSpots = declareDiscoveryExtension({
         signals: { type: "object" },
         spotPrices: {
           type: "object",
-          description: "BTC/ETH/SOL/SUI/HYPE USD spots and 24h % change",
+          description: "BTC/ETH/SOL/SUI/HYPE/ZEC/ZEC USD spots and 24h % change",
         },
       },
       required: ["service", "generatedAt", "spotPrices", "summary", "signals"],
@@ -370,7 +371,7 @@ app.get("/", (req, res) => {
     pricing: {
       fullPulse: {
         endpoint: "GET /v1/pulse",
-        also: "GET /v1/pulse/:asset (BTC|ETH|SOL|SUI|HYPE)",
+        also: "GET /v1/pulse/:asset (BTC|ETH|SOL|SUI|HYPE|ZEC|ZEC)",
         price: PRICE,
       },
       spotsOnly: {
@@ -620,10 +621,10 @@ app.get("/v1/pulse", async (req, res) => {
 app.get("/v1/pulse/:asset", async (req, res) => {
   try {
     const asset = String(req.params.asset || "").toUpperCase();
-    if (!["BTC", "ETH", "SOL", "SUI", "HYPE"].includes(asset)) {
+    if (!["BTC", "ETH", "SOL", "SUI", "HYPE", "ZEC"].includes(asset)) {
       return res.status(400).json({
         error: "invalid_asset",
-        message: "asset must be one of BTC, ETH, SOL, SUI, HYPE",
+        message: "asset must be one of BTC, ETH, SOL, SUI, HYPE, ZEC",
       });
     }
     const pulse = await buildPulse({ asset });
