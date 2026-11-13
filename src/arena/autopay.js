@@ -6,7 +6,7 @@
  * - Max single payout $10; max $11 USDC total per UTC calendar day
  * - Idempotent: pending → verify on-chain → paid; never double-pay
  * - Insufficient funds → record unpaid/owed (no throw to scorer)
- * - Program window: daily rounds 2026-11-03..2026-11-16; weekly weeks 2026-11-02 and 2026-11-09
+ * - Program window: daily rounds 2026-11-03..2026-11-23; weekly weeks 2026-11-02, 2026-11-09, and 2026-11-16
  */
 import { base58 } from "@scure/base";
 import {
@@ -14,6 +14,9 @@ import {
   WEEKLY_PRIZE_USDC,
   weekBounds,
   FIRST_WEEK_START,
+  AUTOPAY_DAILY_START,
+  AUTOPAY_DAILY_END,
+  AUTOPAY_WEEK_IDS,
 } from "./prizes.js";
 import { parseRoundId } from "./rounds.js";
 import { buildLeaderboard } from "./scoring.js";
@@ -21,18 +24,14 @@ import { buildWeeklyLeaderboard } from "./weekly.js";
 import { resolvePrizeWalletAddress, getUsdcBalanceAtomic, solanaExplorerTxUrl } from "./wallet.js";
 import { sendUsdcTransfer, confirmSignature } from "./transfer.js";
 
+export { AUTOPAY_DAILY_START, AUTOPAY_DAILY_END, AUTOPAY_WEEK_IDS };
+
 function dailyBoard(store, roundId) {
   const round = store.getRound(roundId);
   if (!round) return { status: null, ranking: [], prizeWinner: null };
   const { rows, prizeWinner } = buildLeaderboard(round);
   return { status: round.status, ranking: rows, prizeWinner: prizeWinner || null, scoredAt: round.scoredAt };
 }
-
-/** Daily rounds eligible for autopay (inclusive). */
-export const AUTOPAY_DAILY_START = "2026-11-03";
-export const AUTOPAY_DAILY_END = "2026-11-16";
-/** Weekly week ids (Monday) covered by the funded program. */
-export const AUTOPAY_WEEK_IDS = Object.freeze(["2026-11-02", "2026-11-09"]);
 
 export const MAX_SINGLE_PAYOUT_USDC = 10;
 export const MAX_DAILY_TOTAL_USDC = 11;

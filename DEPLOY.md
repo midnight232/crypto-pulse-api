@@ -229,7 +229,7 @@ Starting with the daily round that closes **00:00 UTC on 2026-11-13**, a bot is 
 - Public address env: `ARENA_PRIZE_WALLET` (also shown on `/arena` and `/v1/arena/prize-wallet`).
 - Secret file: `/etc/arena-prize-wallet.json` mode `600`, owner `pulse:pulse` (service user). Never commit.
 - Kill switch: `ARENA_AUTOPAY=on|off` in `/etc/crypto-pulse.env`.
-- Program window: daily rounds 2026-11-03..2026-11-16; weekly weeks 2026-11-02 and 2026-11-09.
+- Program window: daily rounds 2026-11-03..2026-11-23; weekly weeks 2026-11-02, 2026-11-09, and 2026-11-16.
 - Caps: max $10 per payout; max $11 USDC total per UTC day.
 - Fund with **$34 USDC** + about **0.05 SOL** (fees + recipient ATA rent ~0.002 SOL when needed). Recipient ATA rent is paid by the prize wallet.
 
