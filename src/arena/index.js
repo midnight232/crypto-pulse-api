@@ -25,7 +25,14 @@ import {
   weekBounds,
 } from "./prizes.js";
 import { buildWeeklyLeaderboard } from "./weekly.js";
-import { processAutopay, listPublicPayoutHistory, autopayEnabled } from "./autopay.js";
+import {
+  processAutopay,
+  listPublicPayoutHistory,
+  autopayEnabled,
+  weekReadyForPayout,
+  dailyRoundInAutopayWindow,
+  weeklyInAutopayWindow,
+} from "./autopay.js";
 import { getPrizeWalletPublicStatus, resolvePrizeWalletAddress } from "./wallet.js";
 import { verifyPredictionSignature, buildCanonicalMessage, normalizePrice, normalizeAsset, sanitizeBotName } from "./verify.js";
 import { buildLeaderboard, scoreRound } from "./scoring.js";
@@ -443,8 +450,37 @@ export function submitPrediction(body) {
   );
 }
 
-export function exportWinners({ roundId, weekId } = {}) {
+function storedPayoutRow(store, type, id) {
+  const all = store.listPayouts();
+  const bucket = type === "weekly" ? all.weekly || {} : all.daily || {};
+  return Object.prototype.hasOwnProperty.call(bucket, id) ? bucket[id] : null;
+}
+
+function dailyRoundClosed(roundId, now) {
+  try {
+    return now.getTime() >= new Date(parseRoundId(roundId).closeAt).getTime();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Display-only payout status for the admin export.
+ * Does not write payout records or change autopay behavior.
+ */
+function exportPayoutStatus({ stored, closedAndScored, hasEligibleWinner, inWindow }) {
+  const paid = Boolean(stored?.paid || stored?.status === "paid");
+  if (paid) return "paid";
+  if (stored?.status && stored.status !== "unpaid") return stored.status;
+  if (!closedAndScored) return "pending";
+  if (!hasEligibleWinner) return "skipped";
+  if (!inWindow) return "outside_window";
+  return stored?.status || "unpaid";
+}
+
+export function exportWinners({ roundId, weekId, now = new Date() } = {}) {
   const store = getStore();
+  const at = now instanceof Date ? now : new Date(now);
   const payoutNote = autopayEnabled()
     ? "Automatic on-chain USDC payouts from the public prize wallet while funded and within the program window. Insufficient balance is recorded as unpaid/owed. Kill switch: ARENA_AUTOPAY=off."
     : "Autopay is disabled (ARENA_AUTOPAY=off). Eligible prizes are recorded as unpaid until re-enabled or paid manually.";
@@ -454,7 +490,16 @@ export function exportWinners({ roundId, weekId } = {}) {
   for (const id of roundIds) {
     const board = getLeaderboard(id);
     const winner = board.prizeWinner || board.ranking.find((r) => r.prizeEligible) || null;
-    const payout = store.getPayout("daily", id);
+    const stored = storedPayoutRow(store, "daily", id);
+    const payout = stored || store.getPayout("daily", id);
+    const closedAndScored = board.status === "scored" && dailyRoundClosed(id, at);
+    const hasEligibleWinner = Boolean(winner);
+    const inWindow = dailyRoundInAutopayWindow(id);
+    const payoutStatus = exportPayoutStatus({ stored, closedAndScored, hasEligibleWinner, inWindow });
+    const eligible = hasEligibleWinner && closedAndScored;
+    const note =
+      payout.note ||
+      (closedAndScored && !hasEligibleWinner ? "no_eligible_winner" : payout.note);
     daily.push({
       type: "daily",
       roundId: id,
@@ -465,19 +510,20 @@ export function exportWinners({ roundId, weekId } = {}) {
       botName: payout.botName || winner?.botName || null,
       score: payout.score ?? winner?.avgAbsPctError ?? null,
       paid: Boolean(payout.paid || payout.status === "paid"),
-      payoutStatus: payout.status || (payout.paid ? "paid" : "unpaid"),
+      payoutStatus,
       paidAt: payout.paidAt,
       pendingAt: payout.pendingAt || null,
       txSignature: payout.txSignature || null,
       explorer: payout.explorer || null,
       paidUtcDay: payout.paidUtcDay || null,
       error: payout.error || null,
-      note: payout.note,
-      eligible: Boolean(winner) && board.status === "scored",
+      note,
+      closed: closedAndScored,
+      eligible,
     });
   }
 
-  const weeks = new Set([FIRST_WEEK_START, currentWeekId()]);
+  const weeks = new Set([FIRST_WEEK_START, currentWeekId(at)]);
   for (const id of roundIds) {
     try {
       weeks.add(weekIdFromRoundId(id));
@@ -493,7 +539,16 @@ export function exportWinners({ roundId, weekId } = {}) {
     if (wid < FIRST_WEEK_START) continue;
     const board = getWeeklyLeaderboard(wid);
     const winner = board.winner;
-    const payout = store.getPayout("weekly", wid);
+    const stored = storedPayoutRow(store, "weekly", wid);
+    const payout = stored || store.getPayout("weekly", wid);
+    const closedAndScored = weekReadyForPayout(store, wid, at);
+    const hasEligibleWinner = Boolean(winner) && winner.avgAbsPctError != null;
+    const inWindow = weeklyInAutopayWindow(wid);
+    const payoutStatus = exportPayoutStatus({ stored, closedAndScored, hasEligibleWinner, inWindow });
+    const eligible = hasEligibleWinner && closedAndScored;
+    const note =
+      payout.note ||
+      (closedAndScored && !hasEligibleWinner ? "no_eligible_winner" : payout.note);
     weekly.push({
       type: "weekly",
       weekId: wid,
@@ -505,20 +560,30 @@ export function exportWinners({ roundId, weekId } = {}) {
       score: payout.score ?? winner?.avgAbsPctError ?? null,
       roundsEntered: winner?.roundsEntered ?? 0,
       paid: Boolean(payout.paid || payout.status === "paid"),
-      payoutStatus: payout.status || (payout.paid ? "paid" : "unpaid"),
+      payoutStatus,
       paidAt: payout.paidAt,
       pendingAt: payout.pendingAt || null,
       txSignature: payout.txSignature || null,
       explorer: payout.explorer || null,
       paidUtcDay: payout.paidUtcDay || null,
       error: payout.error || null,
-      note: payout.note,
-      eligible: Boolean(winner) && winner.avgAbsPctError != null,
+      note,
+      closed: closedAndScored,
+      eligible,
     });
   }
 
   const dailyOut = roundId ? daily.filter((d) => d.roundId === roundId) : daily;
   const weeklyOut = weekId ? weekly.filter((w) => w.weekId === weekId) : weekly;
+  const rows = [...dailyOut, ...weeklyOut];
+  const owedUnpaid = rows.filter(
+    (x) =>
+      x.closed &&
+      x.eligible &&
+      !x.paid &&
+      (x.payoutStatus === "unpaid" || x.payoutStatus === "insufficient"),
+  );
+  const pending = rows.filter((x) => !x.closed && !x.paid && x.payoutStatus === "pending");
   return {
     prize: prizePoolLabel(),
     prizeShort: prizePoolShort(),
@@ -526,9 +591,8 @@ export function exportWinners({ roundId, weekId } = {}) {
     payoutNote,
     daily: dailyOut,
     weekly: weeklyOut,
-    owedUnpaid: [...dailyOut, ...weeklyOut].filter(
-      (x) => x.eligible && !x.paid && x.payoutStatus !== "skipped" && x.payoutStatus !== "outside_window",
-    ),
+    owedUnpaid,
+    pending,
     prizeWallet: resolvePrizeWalletAddress(),
     autopayEnabled: autopayEnabled(),
     referrals: referralAdminSummary({ arenaStore: store }),

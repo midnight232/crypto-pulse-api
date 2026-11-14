@@ -37,7 +37,7 @@ import {
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
 
-const VERSION = "0.10.3";
+const VERSION = "0.10.4";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
