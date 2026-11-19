@@ -47,7 +47,7 @@ import {
   ensureHouseWalletsFile,
   houseBotsEnabled,
 } from "./house.js";
-import { describePulseEligibilityRule, NO_PULSE_REASON, pulseQualification } from "../pulse-usage.js";
+import { describePulseEligibilityRule, ineligibleReasonForRound, pulseQualification } from "../pulse-usage.js";
 import { publicBaseUrl } from "../discovery.js";
 import {
   bindReferral,
@@ -173,7 +173,7 @@ export function getLeaderboard(roundId) {
       const prizeEligible = !house && pulse.qualified;
       let ineligibleReason = null;
       if (house) ineligibleReason = "house bot";
-      else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
+      else if (pulse.applies && !pulse.qualified) ineligibleReason = ineligibleReasonForRound(meta.roundId);
       return {
         ...r,
         house,
@@ -186,7 +186,7 @@ export function getLeaderboard(roundId) {
     prizeWinner: prizeWinner || null,
     pulseEligibility: describePulseEligibilityRule(),
     houseBotsNote:
-      "Rows with house:true / eligible:false are official operator bots and cannot win prizes. Starting with round 2026-11-13, prize eligibility also requires a /v1/pulse call on the qualifying UTC day (X-Pulse-Client-Id or payer wallet = payout wallet).",
+      "Rows with house:true / eligible:false are official operator bots and cannot win prizes. Starting with round 2026-11-13, prize eligibility also requires a qualifying market-data call on the UTC day that ends at closeAt (X-Pulse-Client-Id or payer wallet = payout wallet): a /v1/pulse call (free or paid) through round 2026-11-22, and at least one paid call (GET /v1/pulse, /v1/pulse/:asset, or /v1/spots) from round 2026-11-23 onward.",
   };
 }
 
@@ -239,15 +239,20 @@ export function buildPrizeEligibility({ wallet, botName, roundId, baseUrl, req }
   const pulse = pulseQualification({ wallet: w, roundId: meta.roundId });
   const docs = `${base}/v1/arena/rules`;
   const clientId = w || "<payout wallet>";
-  const howTo =
+  const rule = pulse.rule || "none";
+  const howToPaid =
+    `GET ${base}/v1/spots ($0.005) or GET ${base}/v1/pulse ($0.02) as a paid x402 call, with X-Pulse-Client-Id: ${clientId} (or pay from that payout wallet). Free-tier pulse calls no longer count starting with round 2026-11-23`;
+  const howToPulse =
     `GET ${base}/v1/pulse with headers X-Crypto-Pulse-Free: 1 and X-Pulse-Client-Id: ${clientId}`;
+  const howTo = rule === "paid" ? howToPaid : howToPulse;
   const deadline = meta.closeAt;
   if (house) {
     return {
       eligible: false,
       applicable: false,
+      rule,
       requirement:
-        "Official house bots (official-*) are never prize-eligible; this /v1/pulse notice is not applicable.",
+        "Official house bots (official-*) are never prize-eligible; this prize-eligibility notice is not applicable.",
       howTo,
       deadline,
       docs,
@@ -255,12 +260,21 @@ export function buildPrizeEligibility({ wallet, botName, roundId, baseUrl, req }
   }
   const applies = pulse.applies;
   const eligible = Boolean(pulse.qualified);
-  const requirement = applies
-    ? "To be prize-eligible for this daily round, make at least one GET /v1/pulse call during the qualifying UTC day (the 24 hours ending at closeAt), with X-Pulse-Client-Id or the payer wallet equal to your payout wallet."
-    : "The /v1/pulse prize-eligibility rule does not apply to this already-closed or pre-enforcement round.";
+  let requirement;
+  if (rule === "paid") {
+    requirement =
+      "To be prize-eligible for this daily round, make at least one paid call (GET /v1/spots at $0.005, GET /v1/pulse at $0.02, or GET /v1/pulse/:asset) during the qualifying UTC day (the 24 hours ending at closeAt), with X-Pulse-Client-Id or the payer wallet equal to your payout wallet. Free-tier pulse calls do not count.";
+  } else if (rule === "pulse") {
+    requirement =
+      "To be prize-eligible for this daily round, make at least one GET /v1/pulse call during the qualifying UTC day (the 24 hours ending at closeAt), with X-Pulse-Client-Id or the payer wallet equal to your payout wallet.";
+  } else {
+    requirement =
+      "The prize-eligibility call rule does not apply to this already-closed or pre-enforcement round.";
+  }
   return {
     eligible,
     applicable: applies,
+    rule,
     requirement,
     howTo,
     deadline,
@@ -270,6 +284,11 @@ export function buildPrizeEligibility({ wallet, botName, roundId, baseUrl, req }
 
 export function prizeEligibilityWarning(info) {
   if (!info || info.applicable === false || info.eligible) return null;
+  if (info.rule === "paid") {
+    return (
+      `Not prize-eligible: no paid call this qualifying UTC day. ${info.howTo} before ${info.deadline}. See ${info.docs}`
+    );
+  }
   return (
     `Not prize-eligible: no /v1/pulse call this qualifying UTC day. ${info.howTo} before ${info.deadline}. See ${info.docs}`
   );
@@ -408,7 +427,7 @@ export function submitPrediction(body) {
   const prizeEligible = !house && pulse.qualified;
   let ineligibleReason = null;
   if (house) ineligibleReason = "house bot";
-  else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
+  else if (pulse.applies && !pulse.qualified) ineligibleReason = ineligibleReasonForRound(meta.roundId);
   const { created, prediction } = store.upsertPrediction(roundId, {
     wallet: verified.wallet,
     botName: verified.botName,
@@ -750,7 +769,7 @@ export function getRoundResults(roundId) {
     const prizeEligible = !house && pulse.qualified;
     let ineligibleReason = null;
     if (house) ineligibleReason = "house bot";
-    else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
+    else if (pulse.applies && !pulse.qualified) ineligibleReason = ineligibleReasonForRound(meta.roundId);
     return {
       wallet: p.wallet,
       botName: p.botName,

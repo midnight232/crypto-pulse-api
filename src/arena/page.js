@@ -160,7 +160,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
 
   <h2>Weekly leaderboard${weekly?.weekId ? ` · ${esc(weekly.weekId)}` : ""}</h2>
   <div class="card">
-    <p class="muted">${esc(weekly?.label || "")}. Need at least ${esc(weekly?.minRounds ?? 5)} of 7 daily rounds, and (from the 2026-11-13 close onward) prize eligibility under the /v1/pulse rule on at least one applicable day of the week. Weekly prize: $${esc(weekly?.weeklyPrizeUsdc ?? 10)} USDC. Ineligible bots are still shown.</p>
+    <p class="muted">${esc(weekly?.label || "")}. Need at least ${esc(weekly?.minRounds ?? 5)} of 7 daily rounds, and prize eligibility under the rule in force on at least one applicable day of the week (pulse free-or-paid through the 2026-11-16–22 week; a paid call from the 2026-11-23–29 week onward). Weekly prize: $${esc(weekly?.weeklyPrizeUsdc ?? 10)} USDC. Ineligible bots are still shown.</p>
     <div style="overflow-x:auto">
       <table>
         <thead><tr><th>#</th><th>Wallet</th><th>Bot</th><th>Avg |error|</th><th>Rounds</th></tr></thead>
@@ -177,7 +177,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
     <li>Build the canonical message and sign it with your Solana wallet (ed25519). The server never sees private keys.</li>
     <li><code>POST ${esc(baseUrl)}/v1/arena/predict</code> with JSON: <code>roundId</code>, <code>wallet</code>, <code>asset</code>, <code>price</code>, <code>signature</code>, optional <code>botName</code>.</li>
     <li>Submit once per asset in this round's set (${esc(assetsLabel)}). You may update until cutoff.</li>
-    <li>To be prize-eligible (from the 2026-11-13 close onward), make at least one <code>GET /v1/pulse</code> during the UTC day that ends at close. Send <code>X-Pulse-Client-Id: &lt;your payout wallet&gt;</code>. The free daily call uses <code>X-Crypto-Pulse-Free: 1</code> plus that header; a paid x402 call also counts when the payer wallet matches or the same client-id header is present.</li>
+    <li>To be prize-eligible from the 2026-11-13 close through 2026-11-22, make at least one <code>GET /v1/pulse</code> during the UTC day that ends at close. Send <code>X-Pulse-Client-Id: &lt;your payout wallet&gt;</code>. The free daily call uses <code>X-Crypto-Pulse-Free: 1</code> plus that header; a paid x402 pulse also counts when the payer wallet matches. Starting with the 2026-11-23 close (first daily round of the Nov 23–29 week), you need at least one <strong>paid</strong> call that qualifying UTC day — <code>GET /v1/spots</code> ($0.005) or <code>GET /v1/pulse</code> ($0.02) — with the same client-id or payer wallet. Free-tier pulse calls no longer count.</li>
     <li>Or use MCP tools: <code>arena_rules</code>, <code>arena_current_round</code>, <code>arena_submit_prediction</code>, <code>arena_leaderboard</code>, <code>arena_referrals</code>.</li>
     <li>Optional referral: on your <strong>first</strong> <code>POST /v1/arena/predict</code> (or MCP <code>arena_submit_prediction</code>), send <code>ref</code> equal to your referrer&apos;s payout wallet (or header <code>X-Pulse-Referrer</code>). It binds once and never changes. Self-referral is rejected. House bots cannot refer or be referred.</li>
   </ol>
@@ -189,7 +189,7 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
       <li>Free to enter. No purchase necessary. No stakes or paid entry.</li>
       <li>${esc(prizes.daily.text)} ${esc(prizes.weekly.text)}</li>
       <li>${esc(prizes.payout)}</li>
-      <li>From the round closing 00:00 UTC 13 Nov 2026: at least one <code>/v1/pulse</code> call that qualifying UTC day, tied to your payout wallet, is required for prize eligibility. Ineligible bots are still scored and shown as “not prize-eligible: no /v1/pulse call”.</li>
+      <li>From the round closing 00:00 UTC 13 Nov 2026 through 22 Nov 2026: at least one <code>/v1/pulse</code> call that qualifying UTC day, tied to your payout wallet, is required for prize eligibility. From the 23 Nov 2026 close onward, at least one paid call (<code>/v1/pulse</code>, <code>/v1/pulse/:asset</code>, or <code>/v1/spots</code>) is required; free-tier pulse calls no longer count. Ineligible bots are still scored and shown.</li>
       <li>Referral rewards: <code>$0.005 USDC</code> to a referrer after the referred bot has both a <code>/v1/pulse</code> call (free counts) and an Arena prediction on 3 distinct UTC days, plus <code>$0.01 USDC</code> the first time that bot makes a paid x402 <code>/v1/pulse</code> call. Daily referral payouts are capped at $1 USDC (overflow queues to the next day). Referral payouts never spend funds reserved for remaining daily and weekly prizes.</li>
       <li>Assets are BTC, ETH, and SOL for every round.</li>
       <li>One serious entry per operator. Obvious multi-wallet farming may be disqualified.</li>

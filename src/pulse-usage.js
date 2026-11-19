@@ -1,11 +1,11 @@
 /**
- * Persistent log of successful GET /v1/pulse calls, keyed by UTC date,
- * client id, and payer wallet. Used for Arena prize eligibility.
+ * Persistent log of successful paid and free market-data calls, keyed by
+ * UTC date, client id, and payer wallet. Used for Arena prize eligibility.
  *
  * Identity: an Arena entry is the payout wallet (the `wallet` field on
  * POST /v1/arena/predict). There is no separate entry id.
  *
- * A call counts for that wallet on a UTC day when:
+ * A call is attributed to that wallet on a UTC day when:
  *   - X-Pulse-Client-Id equals the payout wallet (free or paid), or
  *   - a paid x402 call's payer wallet equals the payout wallet.
  *
@@ -14,8 +14,16 @@
  * closeAt. Example: round 2026-11-13 (closes 00:00 UTC 13 Nov) requires a
  * call sometime on 2026-11-12 UTC.
  *
- * The rule is enforced starting with that 2026-11-13 round. Earlier closed
- * rounds are unchanged.
+ * Two eligibility phases:
+ *   - Rounds 2026-11-13 through 2026-11-22: at least one GET /v1/pulse
+ *     (free or paid; /v1/pulse/:asset counts). Free-tier pulse counts.
+ *     Paid /v1/spots alone does not satisfy this phase.
+ *   - Rounds 2026-11-23 onward (first daily round of the Nov 23–29 week):
+ *     at least one PAID call on any paid endpoint (/v1/pulse,
+ *     /v1/pulse/:asset, or /v1/spots). Free-tier pulse calls no longer
+ *     count. The Nov 16–22 weekly still uses the pulse (free or paid) rule.
+ *
+ * Earlier closed rounds (before 2026-11-13) are unchanged.
  */
 import fs from "fs";
 import path from "path";
@@ -32,7 +40,12 @@ const BASE64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
 
 /** First daily round id (settlement date) the pulse-call rule applies to. */
 export const PULSE_RULE_FIRST_ROUND = "2026-11-13";
+/** First daily round id the paid-call rule applies to (week of 2026-11-23). */
+export const PAID_RULE_FIRST_ROUND = "2026-11-23";
+/** Last daily round id that still uses the pulse (free or paid) rule. */
+export const PULSE_RULE_LAST_ROUND = "2026-11-22";
 export const NO_PULSE_REASON = "not prize-eligible: no /v1/pulse call";
+export const NO_PAID_CALL_REASON = "not prize-eligible: no paid call";
 
 export function utcDayKey(d = new Date()) {
   const x = d instanceof Date ? d : new Date(d);
@@ -60,6 +73,48 @@ export function pulseUsageDayForRound(roundId) {
 
 export function pulseRuleApplies(roundId) {
   return String(roundId || "") >= PULSE_RULE_FIRST_ROUND;
+}
+
+export function paidRuleApplies(roundId) {
+  return String(roundId || "") >= PAID_RULE_FIRST_ROUND;
+}
+
+/** Eligibility rule in force for a daily round: "none" | "pulse" | "paid". */
+export function eligibilityRuleForRound(roundId) {
+  if (paidRuleApplies(roundId)) return "paid";
+  if (pulseRuleApplies(roundId)) return "pulse";
+  return "none";
+}
+
+export function ineligibleReasonForRound(roundId) {
+  const rule = eligibilityRuleForRound(roundId);
+  if (rule === "paid") return NO_PAID_CALL_REASON;
+  if (rule === "pulse") return NO_PULSE_REASON;
+  return null;
+}
+
+export function endpointIsPulse(endpoint) {
+  const ep = String(endpoint || "").trim();
+  if (!ep) return true; // legacy records were /v1/pulse only
+  return ep === "/v1/pulse" || ep.startsWith("/v1/pulse/");
+}
+
+function rowEndpoints(row) {
+  if (!row || typeof row !== "object") return [];
+  if (Array.isArray(row.endpoints) && row.endpoints.length) return row.endpoints.map(String);
+  if (row.endpoint) return [String(row.endpoint)];
+  return [];
+}
+
+export function rowHasPulse(row) {
+  if (!row) return false;
+  const eps = rowEndpoints(row);
+  if (eps.length === 0) return true; // legacy pulse-only rows
+  return eps.some((ep) => endpointIsPulse(ep));
+}
+
+export function rowIsPaid(row) {
+  return Boolean(row && row.kind === "paid");
 }
 
 function looksLikeWallet(value) {
@@ -207,23 +262,70 @@ export class PulseUsageStore {
   }
 
   /**
-   * Record a successful GET /v1/pulse. Idempotent per id/wallet/day (keeps first at).
+   * Record a successful market-data call. Keeps the first `at` per id/wallet/day.
+   * A later paid call upgrades a free row (kind → paid) and appends endpoints,
+   * so a free pulse followed by paid /v1/spots still qualifies under the paid rule.
    */
-  record({ day, clientId, payerWallet, kind = "paid", at = new Date().toISOString() } = {}) {
+  record({ day, clientId, payerWallet, kind = "paid", at = new Date().toISOString(), endpoint = null } = {}) {
     const d = day || utcDayKey();
     const bucket = this._dayBucket(d);
     let changed = false;
+    const ep = String(endpoint || "").trim() || null;
+
+    const merge = (row, extra) => {
+      let localChanged = false;
+      if (kind === "paid" && row.kind !== "paid") {
+        row.kind = "paid";
+        localChanged = true;
+      }
+      if (extra.payerWallet && !row.payerWallet) {
+        row.payerWallet = extra.payerWallet;
+        localChanged = true;
+      }
+      if (extra.clientId && !row.clientId) {
+        row.clientId = extra.clientId;
+        localChanged = true;
+      }
+      if (ep) {
+        if (!Array.isArray(row.endpoints)) {
+          row.endpoints = row.endpoint ? [row.endpoint] : [];
+        }
+        if (!row.endpoints.includes(ep)) {
+          row.endpoints.push(ep);
+          localChanged = true;
+        }
+        row.endpoint = ep;
+      }
+      return localChanged;
+    };
+
     const id = String(clientId || "").trim();
     if (id) {
       if (!bucket.clients[id]) {
-        bucket.clients[id] = { at, kind, payerWallet: payerWallet || null };
+        bucket.clients[id] = {
+          at,
+          kind,
+          payerWallet: payerWallet || null,
+          endpoint: ep,
+          endpoints: ep ? [ep] : [],
+        };
+        changed = true;
+      } else if (merge(bucket.clients[id], { payerWallet })) {
         changed = true;
       }
     }
     const payer = String(payerWallet || "").trim();
     if (payer) {
       if (!bucket.payers[payer]) {
-        bucket.payers[payer] = { at, kind, clientId: id || null };
+        bucket.payers[payer] = {
+          at,
+          kind,
+          clientId: id || null,
+          endpoint: ep,
+          endpoints: ep ? [ep] : [],
+        };
+        changed = true;
+      } else if (merge(bucket.payers[payer], { clientId: id || null })) {
         changed = true;
       }
     }
@@ -243,11 +345,26 @@ export class PulseUsageStore {
     return Boolean(this.db.days[day]?.payers?.[w]);
   }
 
-  /** True if this payout wallet has a matching client-id or payer record that day. */
+  /**
+   * True if this payout wallet has a /v1/pulse (free or paid) record that day.
+   * Paid /v1/spots-only records do not match — used by the pre-2026-11-23
+   * pulse rule and by referral "pulse+predict" days.
+   */
   matches(day, wallet) {
     const w = String(wallet || "").trim();
     if (!w || !day) return false;
-    return this.hasClient(day, w) || this.hasPayer(day, w);
+    const bucket = this.db.days[day];
+    if (!bucket) return false;
+    return rowHasPulse(bucket.clients?.[w]) || rowHasPulse(bucket.payers?.[w]);
+  }
+
+  /** True if this payout wallet has a paid call (any paid endpoint) that day. */
+  matchesPaid(day, wallet) {
+    const w = String(wallet || "").trim();
+    if (!w || !day) return false;
+    const bucket = this.db.days[day];
+    if (!bucket) return false;
+    return rowIsPaid(bucket.clients?.[w]) || rowIsPaid(bucket.payers?.[w]);
   }
 
   /**
@@ -305,43 +422,52 @@ export function _setPulseUsageStoreForTests(store) {
 }
 
 export function pulseQualification({ wallet, roundId, usage = getPulseUsageStore() } = {}) {
-  const applies = pulseRuleApplies(roundId);
+  const rule = eligibilityRuleForRound(roundId);
   const day = pulseUsageDayForRound(roundId);
-  if (!applies) return { applies: false, qualified: true, day };
-  const qualified = Boolean(usage && typeof usage.matches === "function" && usage.matches(day, wallet));
-  return { applies: true, qualified, day };
+  if (rule === "none") return { applies: false, qualified: true, day, rule };
+  const check =
+    rule === "paid"
+      ? usage && typeof usage.matchesPaid === "function" && usage.matchesPaid(day, wallet)
+      : usage && typeof usage.matches === "function" && usage.matches(day, wallet);
+  return { applies: true, qualified: Boolean(check), day, rule };
 }
 
-export function recordSuccessfulPulse(req, { kind, now = new Date() } = {}) {
+export function recordSuccessfulPulse(req, { kind, now = new Date(), endpoint = null } = {}) {
   const store = getPulseUsageStore();
   const clientId = freePulseClientId(req) || "";
   const payerWallet = kind === "paid" ? extractPayerWallet(req) : null;
+  const ep = endpoint || (kind === "free" ? "/v1/pulse" : null);
   store.record({
     day: utcDayKey(now),
     clientId: clientId || null,
     payerWallet: payerWallet || null,
     kind: kind || (payerWallet ? "paid" : "free"),
+    endpoint: ep,
     at: now instanceof Date ? now.toISOString() : String(now),
   });
-  return { clientId: clientId || null, payerWallet: payerWallet || null, day: utcDayKey(now) };
+  return { clientId: clientId || null, payerWallet: payerWallet || null, day: utcDayKey(now), endpoint: ep };
 }
 
 export function describePulseEligibilityRule() {
   return {
     firstRoundId: PULSE_RULE_FIRST_ROUND,
     firstCloseAt: `${PULSE_RULE_FIRST_ROUND}T00:00:00.000Z`,
+    paidRuleFirstRoundId: PAID_RULE_FIRST_ROUND,
+    paidRuleFirstCloseAt: `${PAID_RULE_FIRST_ROUND}T00:00:00.000Z`,
+    pulseRuleLastRoundId: PULSE_RULE_LAST_ROUND,
     qualifyingDay:
-      "The UTC calendar date that ends at the round's closeAt (the day before the round id). Round 2026-11-13 requires a /v1/pulse call on 2026-11-12 UTC.",
+      "The UTC calendar date that ends at the round's closeAt (the day before the round id). Round 2026-11-13 requires a qualifying call on 2026-11-12 UTC; round 2026-11-23 requires a paid call on 2026-11-22 UTC.",
     identity:
-      "X-Pulse-Client-Id must equal the bot's payout wallet (the same Solana address sent as `wallet` on POST /v1/arena/predict). There is no separate entry id.",
+      "X-Pulse-Client-Id must equal the bot's payout wallet (the same Solana address sent as `wallet` on POST /v1/arena/predict). A paid x402 call also counts when the payer wallet matches the payout wallet. There is no separate entry id.",
     freeCall:
-      "A free GET /v1/pulse (headers X-Crypto-Pulse-Free: 1 and X-Pulse-Client-Id: <payout-wallet>) counts for that wallet on that UTC day.",
+      "A free GET /v1/pulse (headers X-Crypto-Pulse-Free: 1 and X-Pulse-Client-Id: <payout-wallet>) counts for prize eligibility only on daily rounds 2026-11-13 through 2026-11-22. Starting with round 2026-11-23, free-tier pulse calls no longer count.",
     paidCall:
-      "A paid x402 GET /v1/pulse counts when the payer wallet matches the payout wallet, or when the request carries X-Pulse-Client-Id equal to the payout wallet.",
+      "A paid x402 call to GET /v1/pulse ($0.02), GET /v1/pulse/:asset ($0.02), or GET /v1/spots ($0.005) counts when the payer wallet matches the payout wallet, or when the request carries X-Pulse-Client-Id equal to the payout wallet. Starting with round 2026-11-23, at least one such paid call on the qualifying UTC day is required.",
     ineligibleReason: NO_PULSE_REASON,
+    paidIneligibleReason: NO_PAID_CALL_REASON,
     weekly:
-      "A bot must have been prize-eligible under this rule on at least one day of the week to which the rule applies. For the week of 2026-11-09 through 2026-11-15, only rounds 2026-11-13, 2026-11-14, and 2026-11-15 count toward that requirement.",
-    houseBots: "official-* house bots stay ineligible even if they call /v1/pulse.",
-    earlierRounds: "Rounds that closed before 00:00 UTC 2026-11-13 are unchanged and do not require a pulse call.",
+      "A bot must have been prize-eligible under the rule in force on at least one applicable day of the week. For the week of 2026-11-09 through 2026-11-15, only rounds 2026-11-13, 2026-11-14, and 2026-11-15 count toward that requirement. The week of 2026-11-16 through 2026-11-22 still uses the /v1/pulse (free or paid) rule. Starting with the week of 2026-11-23 through 2026-11-29, the paid-call rule applies to every day of the week.",
+    houseBots: "official-* house bots stay ineligible even if they make a pulse or paid call.",
+    earlierRounds: "Rounds that closed before 00:00 UTC 2026-11-13 are unchanged and do not require a pulse or paid call.",
   };
 }

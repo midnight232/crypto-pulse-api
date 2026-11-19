@@ -3,7 +3,7 @@
  */
 import { buildLeaderboard } from "./scoring.js";
 import { isHouseEntrant } from "./house.js";
-import { NO_PULSE_REASON, pulseRuleApplies } from "../pulse-usage.js";
+import { NO_PULSE_REASON, NO_PAID_CALL_REASON, paidRuleApplies, pulseRuleApplies } from "../pulse-usage.js";
 import {
   WEEKLY_MIN_ROUNDS,
   WEEKLY_PRIZE_USDC,
@@ -64,7 +64,11 @@ export function buildWeeklyLeaderboard(store, weekId) {
     let ineligibleReason = null;
     if (house) ineligibleReason = "house bot";
     else if (!meetsMin) ineligibleReason = `fewer than ${WEEKLY_MIN_ROUNDS} complete daily rounds`;
-    else if (!pulseOk) ineligibleReason = NO_PULSE_REASON;
+    else if (!pulseOk) {
+      ineligibleReason = bounds.roundIds.some((id) => paidRuleApplies(id))
+        ? NO_PAID_CALL_REASON
+        : NO_PULSE_REASON;
+    }
     const avg =
       w.scoredErrors.length > 0
         ? w.scoredErrors.reduce((s, e) => s + e.avgAbsPctError, 0) / w.scoredErrors.length

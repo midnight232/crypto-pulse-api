@@ -76,7 +76,7 @@ function maybeRefreshReferralAfterPulse(rec) {
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.10.4";
+const VERSION = "0.11.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -563,7 +563,7 @@ app.get("/v1/pulse", async (req, res, next) => {
     res.set("X-Crypto-Pulse-Free-Remaining", "0");
     res.set("X-Crypto-Pulse-Free-Day", claim.day);
     try {
-      maybeRefreshReferralAfterPulse(recordSuccessfulPulse(req, { kind: "free" }));
+      maybeRefreshReferralAfterPulse(recordSuccessfulPulse(req, { kind: "free", endpoint: "/v1/pulse" }));
     } catch (err) {
       console.error("pulse usage log error", String(err?.message || err));
     }
@@ -607,7 +607,7 @@ app.get("/v1/pulse", async (req, res) => {
   try {
     const pulse = await buildPulse();
     try {
-      maybeRefreshReferralAfterPulse(recordSuccessfulPulse(req, { kind: "paid" }));
+      maybeRefreshReferralAfterPulse(recordSuccessfulPulse(req, { kind: "paid", endpoint: "/v1/pulse" }));
     } catch (err) {
       console.error("pulse usage log error", String(err?.message || err));
     }
@@ -628,6 +628,11 @@ app.get("/v1/pulse/:asset", async (req, res) => {
       });
     }
     const pulse = await buildPulse({ asset });
+    try {
+      recordSuccessfulPulse(req, { kind: "paid", endpoint: `/v1/pulse/${asset}` });
+    } catch (err) {
+      console.error("pulse usage log error", String(err?.message || err));
+    }
     res.json(pulse);
   } catch (err) {
     console.error("pulse asset error", String(err?.message || err));
@@ -635,9 +640,16 @@ app.get("/v1/pulse/:asset", async (req, res) => {
   }
 });
 
-app.get("/v1/spots", async (_req, res) => {
+app.get("/v1/spots", async (req, res) => {
   try {
     const spots = await buildSpots();
+    try {
+      // Record for prize eligibility. Do not refresh referral paid-pulse bonus
+      // (that reward is only for a paid /v1/pulse call).
+      recordSuccessfulPulse(req, { kind: "paid", endpoint: "/v1/spots" });
+    } catch (err) {
+      console.error("pulse usage log error", String(err?.message || err));
+    }
     res.json(spots);
   } catch (err) {
     console.error("spots error", String(err?.message || err));

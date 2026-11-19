@@ -17,7 +17,12 @@ import {
   pulseRuleApplies,
   pulseQualification,
   NO_PULSE_REASON,
+  NO_PAID_CALL_REASON,
   PULSE_RULE_FIRST_ROUND,
+  PULSE_RULE_LAST_ROUND,
+  PAID_RULE_FIRST_ROUND,
+  paidRuleApplies,
+  eligibilityRuleForRound,
   _setPulseUsageStoreForTests,
 } from "../src/pulse-usage.js";
 import { buildPrizeEligibility, decorateWithPrizeEligibility, prizeEligibilityWarning, getArenaEntry, _setStoreForTests } from "../src/arena/index.js";
@@ -255,5 +260,124 @@ const entry = getArenaEntry({ wallet: wNotice, roundId: "2026-11-13", baseUrl: "
 assert(entry.wallet === wNotice && entry.complete === true, "entry status");
 assert(entry.prizeEligibility.eligible === true, "entry reflects pulse");
 assert(!entry.warning, "no warning on eligible entry");
+
+// --- paid-call rule starting with round 2026-11-23 ---
+assert(PAID_RULE_FIRST_ROUND === "2026-11-23", "paid rule first round");
+assert(PULSE_RULE_LAST_ROUND === "2026-11-22", "pulse rule last round");
+assert(paidRuleApplies("2026-11-22") === false, "paid rule not on 22");
+assert(paidRuleApplies("2026-11-23") === true, "paid rule on 23");
+assert(eligibilityRuleForRound("2026-11-12") === "none", "pre-enforcement rule");
+assert(eligibilityRuleForRound("2026-11-22") === "pulse", "22 still pulse");
+assert(eligibilityRuleForRound("2026-11-23") === "paid", "23 is paid");
+assert(NO_PAID_CALL_REASON === "not prize-eligible: no paid call", "paid reason wording");
+assert(pulseUsageDayForRound("2026-11-23") === "2026-11-22", "round 23 qualifies on 22 UTC");
+assert(pulseUsageDayForRound("2026-11-22") === "2026-11-21", "round 22 qualifies on 21 UTC");
+
+const storePaid = new ArenaStore(path.join(tmp, "arena-paid-rule.json"));
+const wFreeOnly = wallet();
+const wSpots = wallet();
+const wPaidPulse = wallet();
+const wNone = wallet();
+
+// Last pulse-rule day: free pulse still qualifies; spots-only does not
+fillRound(storePaid, "2026-11-22", [
+  { wallet: wFreeOnly, botName: "FreeStillOk", error: 0.4 },
+  { wallet: wSpots, botName: "SpotsOnlyOld", error: 0.3 },
+  { wallet: wNone, botName: "NoCallOld", error: 0.2 },
+]);
+usage.record({ day: "2026-11-21", clientId: wFreeOnly, kind: "free", endpoint: "/v1/pulse" });
+usage.record({ day: "2026-11-21", clientId: wSpots, kind: "paid", endpoint: "/v1/spots" });
+const board22 = buildLeaderboard(storePaid.getRound("2026-11-22"), { usage });
+assert(board22.rows.find((r) => r.wallet === wFreeOnly).prizeEligible === true, "free pulse still qualifies on 22");
+assert(board22.rows.find((r) => r.wallet === wSpots).prizeEligible === false, "spots-only does not satisfy pulse rule on 22");
+assert(board22.rows.find((r) => r.wallet === wNone).ineligibleReason === NO_PULSE_REASON, "22 uses pulse ineligible reason");
+
+// First paid-rule day: free pulse does not qualify; paid spots and paid pulse do
+fillRound(storePaid, "2026-11-23", [
+  { wallet: wFreeOnly, botName: "FreeOnlyNew", error: 0.1 },
+  { wallet: wSpots, botName: "SpotsNew", error: 0.5 },
+  { wallet: wPaidPulse, botName: "PaidPulseNew", error: 0.4 },
+  { wallet: wNone, botName: "NoCallNew", error: 0.2 },
+]);
+usage.record({ day: "2026-11-22", clientId: wFreeOnly, kind: "free", endpoint: "/v1/pulse" });
+usage.record({ day: "2026-11-22", clientId: wSpots, kind: "paid", endpoint: "/v1/spots" });
+usage.record({ day: "2026-11-22", payerWallet: wPaidPulse, kind: "paid", endpoint: "/v1/pulse" });
+const board23 = buildLeaderboard(storePaid.getRound("2026-11-23"), { usage });
+const free23 = board23.rows.find((r) => r.wallet === wFreeOnly);
+const spots23 = board23.rows.find((r) => r.wallet === wSpots);
+const paid23 = board23.rows.find((r) => r.wallet === wPaidPulse);
+const none23 = board23.rows.find((r) => r.wallet === wNone);
+assert(free23.prizeEligible === false && free23.ineligibleReason === NO_PAID_CALL_REASON, "free pulse no longer qualifies on 23");
+assert(spots23.prizeEligible === true, "paid /v1/spots qualifies on 23");
+assert(paid23.prizeEligible === true, "paid /v1/pulse qualifies on 23");
+assert(none23.prizeEligible === false && none23.ineligibleReason === NO_PAID_CALL_REASON, "23 uses paid ineligible reason");
+assert(board23.prizeWinner.wallet === wSpots || board23.prizeWinner.wallet === wPaidPulse, "prize winner is a paid-call bot");
+assert(board23.prizeWinner.wallet !== wFreeOnly, "free-only bot is not the prize winner");
+
+// Free then paid spots later the same day upgrades the row
+const wUpgrade = wallet();
+fillRound(storePaid, "2026-11-24", [{ wallet: wUpgrade, botName: "UpgradeBot", error: 0.3 }]);
+usage.record({ day: "2026-11-23", clientId: wUpgrade, kind: "free", endpoint: "/v1/pulse" });
+const beforeUpgrade = buildLeaderboard(storePaid.getRound("2026-11-24"), { usage });
+assert(beforeUpgrade.rows[0].prizeEligible === false, "free only, not yet paid");
+usage.record({ day: "2026-11-23", clientId: wUpgrade, kind: "paid", endpoint: "/v1/spots" });
+const afterUpgrade = buildLeaderboard(storePaid.getRound("2026-11-24"), { usage });
+assert(afterUpgrade.rows[0].prizeEligible === true, "upgraded free+spots qualifies");
+assert(usage.matches("2026-11-23", wUpgrade) === true, "upgrade still counts as pulse for referrals/old rule");
+assert(usage.matchesPaid("2026-11-23", wUpgrade) === true, "upgrade counts as paid");
+
+// Week of Nov 16–22 still uses the pulse (free or paid) rule
+const storeW16 = new ArenaStore(path.join(tmp, "arena-week16.json"));
+const wWeekFree = wallet();
+const wWeekNo2 = wallet();
+for (const day of ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-21", "2026-11-22"]) {
+  fillRound(storeW16, day, [
+    { wallet: wWeekFree, botName: "Week16Free", error: 0.4 },
+    { wallet: wWeekNo2, botName: "Week16None", error: 0.3 },
+  ]);
+}
+usage.record({ day: "2026-11-21", clientId: wWeekFree, kind: "free", endpoint: "/v1/pulse" });
+const weekly16 = buildWeeklyLeaderboard(storeW16, "2026-11-16");
+assert(weekly16.ranking.find((r) => r.wallet === wWeekFree).prizeEligible === true, "Nov 16-22 weekly: free pulse still enough");
+assert(weekly16.ranking.find((r) => r.wallet === wWeekNo2).prizeEligible === false, "Nov 16-22 weekly: no pulse ineligible");
+assert(weekly16.ranking.find((r) => r.wallet === wWeekNo2).ineligibleReason === NO_PULSE_REASON, "Nov 16-22 weekly uses pulse reason");
+
+// Week of Nov 23–29 requires a paid call
+const storeW23 = new ArenaStore(path.join(tmp, "arena-week23.json"));
+const wWeekPaid = wallet();
+const wWeekFree2 = wallet();
+for (const day of ["2026-11-23", "2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27"]) {
+  fillRound(storeW23, day, [
+    { wallet: wWeekPaid, botName: "Week23Paid", error: 0.4 },
+    { wallet: wWeekFree2, botName: "Week23Free", error: 0.3 },
+  ]);
+}
+usage.record({ day: "2026-11-22", clientId: wWeekPaid, kind: "paid", endpoint: "/v1/spots" });
+usage.record({ day: "2026-11-22", clientId: wWeekFree2, kind: "free", endpoint: "/v1/pulse" });
+const weekly23 = buildWeeklyLeaderboard(storeW23, "2026-11-23");
+assert(weekly23.ranking.find((r) => r.wallet === wWeekPaid).prizeEligible === true, "Nov 23-29 weekly: paid spots enough");
+const weekFreeRow = weekly23.ranking.find((r) => r.wallet === wWeekFree2);
+assert(weekFreeRow.prizeEligible === false && weekFreeRow.ineligibleReason === NO_PAID_CALL_REASON, "Nov 23-29 weekly: free pulse not enough");
+assert(weekly23.prizeWinner.wallet === wWeekPaid, "Nov 23-29 weekly winner is paid-call bot");
+
+// Notices for a paid-rule round
+const pePaid = buildPrizeEligibility({
+  wallet: wNone,
+  botName: "NoticePaid",
+  roundId: "2026-11-23",
+  baseUrl: "https://cryptopulseapi.com",
+});
+assert(pePaid.eligible === false && pePaid.applicable === true && pePaid.rule === "paid", "paid-rule notice");
+assert(typeof pePaid.requirement === "string" && pePaid.requirement.includes("paid call"), "paid requirement");
+assert(pePaid.howTo.includes("/v1/spots") && pePaid.howTo.includes(wNone), "paid howTo mentions spots and wallet");
+assert(prizeEligibilityWarning(pePaid).includes("no paid call"), "paid warning wording");
+const pePaidOk = buildPrizeEligibility({
+  wallet: wSpots,
+  botName: "NoticePaidOk",
+  roundId: "2026-11-23",
+  baseUrl: "https://cryptopulseapi.com",
+});
+assert(pePaidOk.eligible === true && pePaidOk.rule === "paid", "paid-rule notice eligible after spots");
+assert(!prizeEligibilityWarning(pePaidOk), "no warning when paid-eligible");
 
 console.log("ALL_PULSE_ELIGIBILITY_TESTS_PASSED");

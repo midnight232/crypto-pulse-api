@@ -335,14 +335,23 @@ export function qualifyingReferralDays(arenaStore, wallet, usage = getPulseUsage
   return out;
 }
 
+function paidPulseRow(row) {
+  if (!row || row.kind !== "paid") return false;
+  const eps = Array.isArray(row.endpoints) && row.endpoints.length
+    ? row.endpoints
+    : (row.endpoint ? [row.endpoint] : []);
+  if (eps.length === 0) return true; // legacy records were /v1/pulse only
+  return eps.some((ep) => {
+    const s = String(ep || "").trim();
+    return !s || s === "/v1/pulse" || s.startsWith("/v1/pulse/");
+  });
+}
+
 export function referredHasPaidPulse(wallet, usage = getPulseUsageStore()) {
   const w = String(wallet || "").trim();
   if (!w || !usage?.db?.days) return false;
   for (const bucket of Object.values(usage.db.days)) {
-    const client = bucket?.clients?.[w];
-    if (client && client.kind === "paid") return true;
-    const payer = bucket?.payers?.[w];
-    if (payer) return true;
+    if (paidPulseRow(bucket?.clients?.[w]) || paidPulseRow(bucket?.payers?.[w])) return true;
   }
   return false;
 }

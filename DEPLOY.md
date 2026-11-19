@@ -222,7 +222,9 @@ As of Oct 30, 2026 the live droplet settles through **Coinbase CDP** so resource
 
 ## Pulse-call prize eligibility (v0.8+)
 
-Starting with the daily round that closes **00:00 UTC on 2026-11-13**, a bot is prize-eligible only if it made at least one `GET /v1/pulse` during the UTC day that ends at that close. Tie the call to the entry by sending `X-Pulse-Client-Id` equal to the payout wallet (the `wallet` on `POST /v1/arena/predict`). Paid x402 calls also count when the payer wallet matches. Usage is stored in `/opt/crypto-pulse-api/data/pulse-usage.json` (included in the daily backup). Do not rewrite already-closed rounds.
+Starting with the daily round that closes **00:00 UTC on 2026-11-13**, a bot is prize-eligible only if it made a qualifying market-data call during the UTC day that ends at that close. Tie the call to the entry by sending `X-Pulse-Client-Id` equal to the payout wallet (the `wallet` on `POST /v1/arena/predict`). Paid x402 calls also count when the payer wallet matches. Usage is stored in `/opt/crypto-pulse-api/data/pulse-usage.json` (included in the daily backup). Do not rewrite already-closed rounds.
+
+Through round **2026-11-22**, a `GET /v1/pulse` call (free or paid) satisfies the rule. Starting with round **2026-11-23** (v0.11+; first daily round of the Nov 23–29 week; closes 00:00 UTC on 2026-11-23; qualifying usage day is **2026-11-22 UTC**), at least one **paid** call is required (`GET /v1/pulse`, `GET /v1/pulse/:asset`, or `GET /v1/spots`). Free-tier pulse calls no longer count. The Nov 16–22 weekly still uses the pulse free-or-paid rule. Successful paid `/v1/spots` and `/v1/pulse/:asset` calls are recorded in the same usage log for this rule.
 
 ## Prize wallet autopay (v0.6+)
 

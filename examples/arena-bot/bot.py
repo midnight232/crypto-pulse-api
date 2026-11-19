@@ -8,9 +8,11 @@ POSTs to the free Arena API.
 
 Also makes the 1 free live GET /v1/pulse for the UTC day with
 X-Crypto-Pulse-Free: 1 and X-Pulse-Client-Id set to the payout wallet
-(the same Solana address used as `wallet` on predict). That header value
-is what ties the call to this entry for prize eligibility from the
-2026-11-13 close onward.
+(the same Solana address used as `wallet` on predict). That still
+satisfies prize eligibility through round 2026-11-22. Starting with
+round 2026-11-23, a free pulse is not enough — a paid GET /v1/spots
+($0.005) or GET /v1/pulse ($0.02) is required. This sample does not
+spend USDC automatically; it prints a notice when that rule applies.
 
 Env:
   ARENA_BASE_URL          default https://cryptopulseapi.com
@@ -43,6 +45,8 @@ COINGECKO = (
 )
 ASSET_IDS = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana"}
 ALL_ASSETS = ("BTC", "ETH", "SOL")
+# First daily round (close 00:00 UTC) that requires a paid call for prize eligibility.
+PAID_RULE_FIRST_ROUND = "2026-11-23"
 
 
 def http_json(
@@ -188,6 +192,15 @@ def main() -> int:
         }
     else:
         pulse_claim = claim_free_pulse(base, wallet)
+    if str(round_id) >= PAID_RULE_FIRST_ROUND:
+        paid_note = (
+            f"Round {round_id} uses the paid-call prize rule (from {PAID_RULE_FIRST_ROUND}). "
+            "A free /v1/pulse no longer counts. Make a paid GET /v1/spots ($0.005) or "
+            "GET /v1/pulse ($0.02) with X-Pulse-Client-Id set to this payout wallet "
+            "(or pay from that wallet). This sample bot does not spend USDC automatically."
+        )
+        if isinstance(pulse_claim, dict):
+            pulse_claim = {**pulse_claim, "prizeEligibilityNote": paid_note}
 
     assets = [args.asset] if args.asset else list(round_assets)
     results = []

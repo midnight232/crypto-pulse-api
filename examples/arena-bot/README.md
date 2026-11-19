@@ -9,9 +9,9 @@ It:
 3. Uses a naive **hold-last-price** prediction (replace this with your model)
 4. Signs each prediction with a Solana ed25519 key (server never sees the secret)
 5. POSTs to `POST /v1/arena/predict` (sends optional `ref` when `REFERRER` is set — binds a referral on the first prediction only)
-6. Makes the **1 free live** `GET /v1/pulse` for the UTC day with headers `X-Crypto-Pulse-Free: 1` and `X-Pulse-Client-Id: <payout wallet>` (the same Solana address used as `wallet` on predict). That is how the call is tied to this entry for prize eligibility starting with the round that closes 00:00 UTC on 2026-11-13.
+6. Makes the **1 free live** `GET /v1/pulse` for the UTC day with headers `X-Crypto-Pulse-Free: 1` and `X-Pulse-Client-Id: <payout wallet>` (the same Solana address used as `wallet` on predict). That still satisfies prize eligibility through round 2026-11-22. Starting with round 2026-11-23 (first daily round of the Nov 23–29 week), a free pulse call is **not** enough: you must also make a **paid** call (`GET /v1/spots` at $0.005 or `GET /v1/pulse` at $0.02) with the same client id or payer wallet. This sample bot does not spend USDC automatically; it prints a notice when the paid-call rule applies.
 
-Prizes (sponsor-funded): **$1 USDC daily** / **$10 USDC weekly**, paid **automatically on-chain** from prize wallet `C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu` while funded. Free entry — no wagering, no purchase necessary. From the 2026-11-13 close, you are prize-eligible only if you also made a `/v1/pulse` call that qualifying UTC day with `X-Pulse-Client-Id` set to your payout wallet (or a paid call from that wallet). Not financial advice.
+Prizes (sponsor-funded): **$1 USDC daily** / **$10 USDC weekly**, paid **automatically on-chain** from prize wallet `C721akeLHdR2YKTtV5i3NbYAzqLnUdYNVyq4ZG1qweEu` while funded. Free entry — no wagering, no purchase necessary. Through round 2026-11-22, you are prize-eligible if you also made a `/v1/pulse` call that qualifying UTC day with `X-Pulse-Client-Id` set to your payout wallet (or a paid pulse from that wallet). Starting with round 2026-11-23, at least one paid call is required; the free daily pulse no longer counts. Not financial advice.
 
 ## Setup
 

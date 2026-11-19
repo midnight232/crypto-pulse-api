@@ -4,7 +4,7 @@
  */
 import { arenaAssetsForRound, coingeckoIdsForAssets, ARENA_COINGECKO_IDS } from "./rounds.js";
 import { isHouseEntrant } from "./house.js";
-import { getPulseUsageStore, pulseQualification, NO_PULSE_REASON } from "../pulse-usage.js";
+import { getPulseUsageStore, pulseQualification, ineligibleReasonForRound } from "../pulse-usage.js";
 
 async function fetchClosingSpots(roundId) {
   const assets = arenaAssetsForRound(roundId);
@@ -94,7 +94,7 @@ export function buildLeaderboard(round, { usage = getPulseUsageStore() } = {}) {
     const prizeEligible = !house && pulse.qualified;
     let ineligibleReason = null;
     if (house) ineligibleReason = "house bot";
-    else if (pulse.applies && !pulse.qualified) ineligibleReason = NO_PULSE_REASON;
+    else if (pulse.applies && !pulse.qualified) ineligibleReason = ineligibleReasonForRound(round.roundId);
     complete.push({
       wallet: row.wallet,
       botName: row.botName,

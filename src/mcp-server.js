@@ -37,7 +37,7 @@ import {
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
 
-const VERSION = "0.10.4";
+const VERSION = "0.11.0";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -195,7 +195,7 @@ export function createPulseMcpServer(req) {
     "arena_rules",
     {
       description:
-        "FREE Crypto Pulse Prediction Arena rules: daily UTC close predictions (BTC/ETH/SOL), free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close, prize eligibility requires at least one GET /v1/pulse call on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Optional referral program: send ref (the referrer's payout wallet) on your first arena_submit_prediction; referrers earn $0.005 USDC after 3 UTC days of pulse+predict and $0.01 more on the referred bot's first paid /v1/pulse. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
+        "FREE Crypto Pulse Prediction Arena rules: daily UTC close predictions (BTC/ETH/SOL), free entry (no purchase necessary), scoring by average abs % error, sponsor-funded prizes paid automatically on-chain from the public prize wallet while funded ($1 daily / $10 weekly). From the 2026-11-13 close through 2026-11-22, prize eligibility requires at least one GET /v1/pulse call (free or paid) on the qualifying UTC day with X-Pulse-Client-Id (or payer wallet) equal to the payout wallet. Starting with round 2026-11-23 (first daily round of the Nov 23–29 week), at least one paid call is required (GET /v1/spots at $0.005 or GET /v1/pulse at $0.02); free-tier pulse calls no longer count. Optional referral program: send ref (the referrer's payout wallet) on your first arena_submit_prediction; referrers earn $0.005 USDC after 3 UTC days of pulse+predict and $0.01 more on the referred bot's first paid /v1/pulse. Includes prize wallet address + recent payouts. Server never handles bot private keys.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -255,7 +255,7 @@ export function createPulseMcpServer(req) {
     "arena_submit_prediction",
     {
       description:
-        "FREE: submit or update a signed price prediction for the current (or given) arena round. Assets are BTC, ETH, and SOL. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). From the 2026-11-13 close, also make a GET /v1/pulse that UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible. Optional ref (referrer's payout wallet) binds a referral on this bot's first prediction only; the binding never changes. Self-referral and house bots are rejected.",
+        "FREE: submit or update a signed price prediction for the current (or given) arena round. Assets are BTC, ETH, and SOL. Pass a pre-signed payload — the server never receives private keys. Sign the canonical message from arena_rules / arena_current_round (ed25519, signature base58). Through round 2026-11-22, also make a GET /v1/pulse that qualifying UTC day with X-Pulse-Client-Id set to this wallet to be prize-eligible (free daily headers still count). From round 2026-11-23, make at least one paid call (GET /v1/spots or GET /v1/pulse) that qualifying UTC day; free-tier pulse calls no longer count. Optional ref (referrer's payout wallet) binds a referral on this bot's first prediction only; the binding never changes. Self-referral and house bots are rejected.",
       inputSchema: {
         roundId: z.string().describe("Round id YYYY-MM-DD (settlement midnight UTC)"),
         wallet: z.string().describe("Base58 Solana public key"),
@@ -326,7 +326,7 @@ export function createPulseMcpServer(req) {
     "arena_leaderboard",
     {
       description:
-        "FREE: arena leaderboard. Default is the current daily round. Set weekly=true (optional week=Monday YYYY-MM-DD) for the weekly board: best average daily score among prize-eligible bots that entered at least 5 of 7 rounds Mon–Sun UTC and (from 2026-11-13) made a /v1/pulse call on at least one applicable day. Ineligible bots are still scored and shown. Daily #1 prize-eligible bot wins $1 USDC; weekly winner $10 USDC — paid automatically on-chain from the public prize wallet while funded.",
+        "FREE: arena leaderboard. Default is the current daily round. Set weekly=true (optional week=Monday YYYY-MM-DD) for the weekly board: best average daily score among prize-eligible bots that entered at least 5 of 7 rounds Mon–Sun UTC and were prize-eligible under the rule in force on at least one applicable day (pulse free-or-paid through the 2026-11-16–22 week; a paid call from the 2026-11-23–29 week onward). Ineligible bots are still scored and shown. Daily #1 prize-eligible bot wins $1 USDC; weekly winner $10 USDC — paid automatically on-chain from the public prize wallet while funded.",
       inputSchema: {
         round: z.string().optional().describe("Optional daily round id YYYY-MM-DD"),
         weekly: z.boolean().optional().describe("If true, return the weekly leaderboard"),
@@ -350,7 +350,7 @@ export function createPulseMcpServer(req) {
     "arena_results",
     {
       description:
-        "FREE: scored or in-progress Arena round results — CoinGecko closing prices used for scoring, every prediction with abs % error, leaderboard with house:true/eligible flags and ineligibleReason (including 'not prize-eligible: no /v1/pulse call'), prize-eligible winner, and payout status with Solscan tx links when paid.",
+        "FREE: scored or in-progress Arena round results — CoinGecko closing prices used for scoring, every prediction with abs % error, leaderboard with house:true/eligible flags and ineligibleReason (including 'not prize-eligible: no /v1/pulse call' through 2026-11-22 and 'not prize-eligible: no paid call' from 2026-11-23), prize-eligible winner, and payout status with Solscan tx links when paid.",
       inputSchema: {
         roundId: z.string().optional().describe("Round id YYYY-MM-DD (defaults to current entry round)"),
       },
