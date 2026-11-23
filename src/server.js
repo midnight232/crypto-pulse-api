@@ -76,7 +76,7 @@ function maybeRefreshReferralAfterPulse(rec) {
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.11.0";
+const VERSION = "0.11.1";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.

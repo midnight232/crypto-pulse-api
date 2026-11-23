@@ -16,9 +16,9 @@ export const WEEKLY_MIN_ROUNDS = 5;
 export const FIRST_WEEK_START = "2026-11-02";
 /** Daily rounds eligible for automatic prize payouts (inclusive, by round id). */
 export const AUTOPAY_DAILY_START = "2026-11-03";
-export const AUTOPAY_DAILY_END = "2026-11-23";
+export const AUTOPAY_DAILY_END = "2026-11-30";
 /** Weekly week ids (Monday UTC by round id) covered by the funded program. */
-export const AUTOPAY_WEEK_IDS = Object.freeze(["2026-11-02", "2026-11-09", "2026-11-16"]);
+export const AUTOPAY_WEEK_IDS = Object.freeze(["2026-11-02", "2026-11-09", "2026-11-16", "2026-11-23"]);
 
 function pad(n) {
   return String(n).padStart(2, "0");

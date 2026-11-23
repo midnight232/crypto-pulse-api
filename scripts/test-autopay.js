@@ -36,14 +36,16 @@ assert(!isValidSolanaPubkey("11111111111111111111111111111111"), "zero wallet re
 // all-1s pubkey is valid length but we only reject all-zero; ok
 
 assert(dailyRoundInAutopayWindow("2026-11-03"), "daily start");
-assert(dailyRoundInAutopayWindow("2026-11-16"), "prior daily end still in");
-assert(dailyRoundInAutopayWindow("2026-11-23"), "daily end");
+assert(dailyRoundInAutopayWindow("2026-11-23"), "prior daily end still in");
+assert(dailyRoundInAutopayWindow("2026-11-30"), "daily end");
 assert(!dailyRoundInAutopayWindow("2026-11-02"), "nov2 daily out");
-assert(!dailyRoundInAutopayWindow("2026-11-24"), "after daily end out");
+assert(!dailyRoundInAutopayWindow("2026-11-31"), "invalid day out");
+assert(!dailyRoundInAutopayWindow("2026-12-01"), "after daily end out");
 assert(weeklyInAutopayWindow("2026-11-02"), "week1");
 assert(weeklyInAutopayWindow("2026-11-09"), "week2");
 assert(weeklyInAutopayWindow("2026-11-16"), "week3");
-assert(!weeklyInAutopayWindow("2026-11-23"), "week4 out");
+assert(weeklyInAutopayWindow("2026-11-23"), "week4");
+assert(!weeklyInAutopayWindow("2026-11-30"), "week5 out");
 
 // Cap: single > 10
 {
@@ -117,6 +119,24 @@ assert(!weeklyInAutopayWindow("2026-11-23"), "week4 out");
   assert(sends === 0, "no send when insufficient");
   const row = store.getPayout("daily", "2026-11-05");
   assert(row.status === "insufficient" && row.paid === false, "recorded insufficient");
+
+  // Still owed / retryable: once funded, the same prize is paid (not skipped).
+  const r2 = await attemptPayout(store, {
+    type: "daily",
+    id: "2026-11-05",
+    amountUsdc: 1,
+    wallet: goodWallet,
+    botName: "UnitBot",
+    enabled: true,
+    getBalance: async () => ({ ui: 5, amount: 5_000_000n }),
+    sendFn: async () => {
+      sends++;
+      return { signature: "retrySig", explorer: "https://solscan.io/tx/retrySig", confirmation: "confirmed" };
+    },
+  });
+  assert(r2.ok && r2.payout.status === "paid", "insufficient retries after funding");
+  assert(sends === 1, "sends once funded");
+  assert(store.getPayout("daily", "2026-11-05").paid === true, "marked paid on retry");
 }
 
 // Successful dry payout + idempotency

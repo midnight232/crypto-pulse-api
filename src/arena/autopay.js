@@ -6,7 +6,7 @@
  * - Max single payout $10; max $11 USDC total per UTC calendar day
  * - Idempotent: pending → verify on-chain → paid; never double-pay
  * - Insufficient funds → record unpaid/owed (no throw to scorer)
- * - Program window: daily rounds 2026-11-03..2026-11-23; weekly weeks 2026-11-02, 2026-11-09, and 2026-11-16
+ * - Program window: daily rounds 2026-11-03..2026-11-30; weekly weeks 2026-11-02, 2026-11-09, 2026-11-16, and 2026-11-23
  */
 import { base58 } from "@scure/base";
 import {
