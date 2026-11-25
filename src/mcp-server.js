@@ -36,8 +36,18 @@ import {
 } from "./arena/index.js";
 import { currentWeekId } from "./arena/prizes.js";
 import { describeFreePulseRule } from "./free-pulse.js";
+import { describeForgeCatalog, listAssetPresets, listForgeTemplates, listSignalModules } from "./arena/forge/signals.js";
+import {
+  configureForgeBot,
+  enterForgeBot,
+  forgeConfigMessage,
+  getForgeBot,
+  previewForgeBot,
+} from "./arena/forge/bots.js";
+import { forgeXpLeaderboard, progressionDetail } from "./arena/forge/progress.js";
+import { shareUrls } from "./arena/forge/cards.js";
 
-const VERSION = "0.11.1";
+const VERSION = "0.12.0";
 
 function paymentHint(kind, req) {
   const base = publicBaseUrl(req);
@@ -362,6 +372,204 @@ export function createPulseMcpServer(req) {
         content: [{ type: "text", text: JSON.stringify(out, null, 2) }],
         structuredContent: out,
       };
+    },
+  );
+
+  function forgeToolError(err) {
+    const fail = {
+      ok: false,
+      error: err.code || "forge_failed",
+      message: err.message,
+    };
+    if (err.asset) fail.asset = err.asset;
+    if (err.signMessage) fail.messageToSign = err.signMessage;
+    if (err.price != null) fail.price = err.price;
+    return {
+      content: [{ type: "text", text: JSON.stringify(fail, null, 2) }],
+      structuredContent: fail,
+      isError: true,
+    };
+  }
+
+  function forgeToolOk(result) {
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      structuredContent: result,
+    };
+  }
+
+  server.registerTool(
+    "forge_modules",
+    {
+      description:
+        "FREE Pulse Forge signal modules: baseline, momentum, mean-reversion, Fear & Greed, funding fade, and DeFi yields. Quotes use a pulse snapshot and the house strategies. Non-cash. Does not change Arena prizes, autopay, or paid-call eligibility.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => forgeToolOk({ modules: listSignalModules(), catalog: describeForgeCatalog() }),
+  );
+
+  server.registerTool(
+    "forge_templates",
+    {
+      description:
+        "FREE Pulse Forge starter templates and asset presets (momentum, mean-revert, fear-greed, funding-fade, defi-yield, balanced, baseline). Weight presets only. Ranking still requires BTC, ETH, and SOL.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => forgeToolOk({ templates: listForgeTemplates(), assetPresets: listAssetPresets() }),
+  );
+
+  server.registerTool(
+    "forge_config_message",
+    {
+      description:
+        "FREE: canonical Pulse Forge config message to sign with the payout wallet (ed25519, base58). Does not save the bot. Server never receives private keys.",
+      inputSchema: {
+        wallet: z.string().describe("Base58 Solana payout wallet"),
+        botName: z.string().max(32).describe("Display name, 1-32 chars. official- is reserved."),
+        templateId: z.string().optional().describe("Starter template id. Omit when passing custom modules."),
+        modules: z.array(z.object({ id: z.string(), weight: z.number() })).optional(),
+        assets: z.array(z.enum(["BTC", "ETH", "SOL"])).optional(),
+        assetPreset: z.enum(["all", "btc", "eth", "sol"]).optional(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      try {
+        return forgeToolOk(forgeConfigMessage(args || {}));
+      } catch (err) {
+        return forgeToolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "forge_configure",
+    {
+      description:
+        "FREE: save a signed Pulse Forge bot for this payout wallet (one config per wallet). Pass the signature from forge_config_message. Does not enter the Arena and does not change prizes.",
+      inputSchema: {
+        wallet: z.string(),
+        botName: z.string().max(32),
+        signature: z.string().describe("Base58 ed25519 signature over the forge config message"),
+        templateId: z.string().optional(),
+        modules: z.array(z.object({ id: z.string(), weight: z.number() })).optional(),
+        assets: z.array(z.enum(["BTC", "ETH", "SOL"])).optional(),
+        assetPreset: z.enum(["all", "btc", "eth", "sol"]).optional(),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => {
+      try {
+        return forgeToolOk(configureForgeBot(args || {}));
+      } catch (err) {
+        return forgeToolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "forge_preview",
+    {
+      description:
+        "FREE: quote Arena close prices for a saved bot or an inline template/modules list. Pass a pulse snapshot (or normalized spots, fearGreed, funding, defi). Returns canonical messages to sign. Does not submit.",
+      inputSchema: {
+        wallet: z.string().optional(),
+        botName: z.string().max(32).optional(),
+        templateId: z.string().optional(),
+        modules: z.array(z.object({ id: z.string(), weight: z.number() })).optional(),
+        assets: z.array(z.enum(["BTC", "ETH", "SOL"])).optional(),
+        assetPreset: z.enum(["all", "btc", "eth", "sol"]).optional(),
+        roundId: z.string().optional(),
+        snapshot: z.record(z.any()).describe("Pulse JSON or { spots, fearGreed, funding, defi }"),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => {
+      try {
+        return forgeToolOk(previewForgeBot(args || {}));
+      } catch (err) {
+        return forgeToolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "forge_enter",
+    {
+      description:
+        "FREE: enter the current Arena round with a saved Pulse Forge bot. Sign each preview message and pass signatures by asset. Uses the existing predict path, so prize eligibility is unchanged. Optional ref binds a referral on the wallet's first prediction only.",
+      inputSchema: {
+        wallet: z.string(),
+        roundId: z.string(),
+        snapshot: z.record(z.any()),
+        signatures: z.record(z.string()).describe("Map of BTC/ETH/SOL to base58 signatures"),
+        ref: z.string().optional().describe("Referrer payout wallet. Bound only on the first prediction."),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => {
+      try {
+        return forgeToolOk(enterForgeBot({ ...(args || {}), submitPrediction }));
+      } catch (err) {
+        return forgeToolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "forge_progress",
+    {
+      description:
+        "FREE: non-cash XP, level, accuracy streak, and badges for a payout wallet. Separate from prize rankings.",
+      inputSchema: {
+        wallet: z.string(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ wallet }) => {
+      try {
+        let bot = null;
+        try {
+          bot = getForgeBot(wallet);
+        } catch {
+          bot = null;
+        }
+        return forgeToolOk({ ...progressionDetail(wallet), bot });
+      } catch (err) {
+        return forgeToolError(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "forge_leaderboard",
+    {
+      description:
+        "FREE: non-cash Pulse Forge XP leaderboard. Does not change the daily or weekly prize leaderboards.",
+      inputSchema: {
+        limit: z.number().int().min(1).max(100).optional(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ limit } = {}) => forgeToolOk(forgeXpLeaderboard({ limit: limit || 50 })),
+  );
+
+  server.registerTool(
+    "forge_share",
+    {
+      description:
+        "FREE: share links and OG card URLs for a round result, including the referral code (the payout wallet).",
+      inputSchema: {
+        roundId: z.string(),
+        wallet: z.string(),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ roundId, wallet }) => {
+      const urls = shareUrls({ baseUrl: publicBaseUrl(req), roundId, wallet });
+      return forgeToolOk({ roundId, wallet, ...urls, progression: progressionDetail(wallet) });
     },
   );
 

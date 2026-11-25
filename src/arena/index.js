@@ -51,7 +51,7 @@ import { describePulseEligibilityRule, ineligibleReasonForRound, pulseQualificat
 import { publicBaseUrl } from "../discovery.js";
 import {
   bindReferral,
-  getReferralView,
+  getReferralView as referralViewForWallet,
   getReferrerDashboard,
   getReferralStore,
   refreshReferralProgress,
@@ -60,6 +60,10 @@ import {
   walletHasPrediction,
   describeReferralProgram,
 } from "./referrals.js";
+import { describeForgeCatalog } from "./forge/signals.js";
+import { applyRoundProgress, readProgress, emptyProgress } from "./forge/progress.js";
+import { nonCashForReferred, nonCashReferrerSummary } from "./forge/referrals.js";
+import { shareUrls } from "./forge/cards.js";
 
 let storeSingleton = null;
 let scorerTimer = null;
@@ -89,6 +93,12 @@ export function getArenaPublicConfig() {
     houseBotsNote:
       "Bots named official-* are operator house bots. They appear on the board for transparency but are ineligible for prizes and autopay (house:true, eligible:false).",
     pulseEligibility: describePulseEligibilityRule(),
+    forge: {
+      catalogUrl: "/v1/forge",
+      modulesUrl: "/v1/forge/modules",
+      templatesUrl: "/v1/forge/templates",
+      note: "Pulse Forge bots, XP, share cards, and non-cash Pro-day credits. Cash prizes, autopay, and paid-call eligibility are unchanged.",
+    },
   };
 }
 
@@ -128,7 +138,7 @@ export function describeRound(meta, store) {
     uniqueWallets: wallets.size,
     closes: round.closes,
     scoredAt: round.scoredAt,
-    leaderboardTop: rows.slice(0, 10),
+    leaderboardTop: rows.slice(0, 10).map(withProgression),
     incompleteCount: incomplete.length,
     acceptingEntries: lifecycle === "open",
     prizeWinner: rows.find((r) => r.prizeEligible && r.prizeRank === 1) || null,
@@ -149,7 +159,61 @@ export function getRoundById(roundId) {
 }
 
 export function getRules() {
-  return { ...arenaRules(), referrals: describeReferralProgram() };
+  return {
+    ...arenaRules(),
+    referrals: describeReferralProgram(),
+    forge: describeForgeCatalog(),
+  };
+}
+
+function safeProgress(wallet) {
+  try {
+    return readProgress(wallet);
+  } catch {
+    return emptyProgress(wallet);
+  }
+}
+
+function withProgression(row) {
+  if (!row || !row.wallet) return row;
+  return { ...row, progression: safeProgress(row.wallet) };
+}
+
+function withShare(roundId, row) {
+  const decorated = withProgression(row);
+  if (!decorated?.wallet) return decorated;
+  const links = shareUrls({ baseUrl: "", roundId, wallet: decorated.wallet });
+  return {
+    ...decorated,
+    share: {
+      ref: decorated.wallet,
+      cardPath: links.cardPath,
+      pagePath: links.pagePath,
+      streakCardPath: links.streakCardPath,
+      streakPagePath: links.streakPagePath,
+    },
+  };
+}
+
+function withNonCashReferral(view, wallet, opts = {}) {
+  if (!view || typeof view !== "object") return view;
+  try {
+    return {
+      ...view,
+      nonCash: nonCashForReferred(wallet, {
+        arenaStore: opts.arenaStore || getStore(),
+        referralStore: opts.store,
+      }),
+    };
+  } catch {
+    return view;
+  }
+}
+
+export function getReferralView(wallet, opts = {}) {
+  const arenaStore = opts.arenaStore || getStore();
+  const view = referralViewForWallet(wallet, { ...opts, arenaStore });
+  return withNonCashReferral(view, wallet, { ...opts, arenaStore });
 }
 
 export function getLeaderboard(roundId) {
@@ -158,6 +222,7 @@ export function getLeaderboard(roundId) {
   store.ensureRound(meta);
   const round = store.getRound(meta.roundId);
   const { rows, incomplete, prizeWinner } = buildLeaderboard(round);
+  const ranking = rows.map((row) => withShare(meta.roundId, row));
   return {
     roundId: meta.roundId,
     status: round.status,
@@ -166,7 +231,7 @@ export function getLeaderboard(roundId) {
     prize: prizePoolLabel(),
     prizeShort: prizePoolShort(),
     dailyPrizeUsdc: DAILY_PRIZE_USDC,
-    ranking: rows,
+    ranking,
     incomplete: incomplete.map((r) => {
       const house = isHouseEntrant({ wallet: r.wallet, botName: r.botName });
       const pulse = pulseQualification({ wallet: r.wallet, roundId: meta.roundId });
@@ -181,9 +246,10 @@ export function getLeaderboard(roundId) {
         prizeEligible,
         eligible: prizeEligible,
         ineligibleReason,
+        progression: safeProgress(r.wallet),
       };
     }),
-    prizeWinner: prizeWinner || null,
+    prizeWinner: ranking.find((r) => r.prizeEligible && r.prizeRank === 1) || prizeWinner || null,
     pulseEligibility: describePulseEligibilityRule(),
     houseBotsNote:
       "Rows with house:true / eligible:false are official operator bots and cannot win prizes. Starting with round 2026-11-13, prize eligibility also requires a qualifying market-data call on the UTC day that ends at closeAt (X-Pulse-Client-Id or payer wallet = payout wallet): a /v1/pulse call (free or paid) through round 2026-11-22, and at least one paid call (GET /v1/pulse, /v1/pulse/:asset, or /v1/spots) from round 2026-11-23 onward.",
@@ -192,7 +258,16 @@ export function getLeaderboard(roundId) {
 
 export function getWeeklyLeaderboard(weekId) {
   const store = getStore();
-  return buildWeeklyLeaderboard(store, weekId || undefined);
+  const board = buildWeeklyLeaderboard(store, weekId || undefined);
+  const ranking = (board.ranking || []).map(withProgression);
+  const prizeWinner = ranking.find((r) => r.prizeEligible && r.prizeRank === 1) || null;
+  return {
+    ...board,
+    ranking,
+    ineligible: ranking.filter((r) => !r.prizeEligible),
+    winner: prizeWinner,
+    prizeWinner,
+  };
 }
 
 export function signingHelp(example = {}) {
@@ -658,10 +733,22 @@ export function deleteReferralAdmin({ wallet }) {
 }
 
 export function getReferrerDashboardForRequest(wallet) {
-  return getReferrerDashboard(wallet, { arenaStore: getStore() });
+  const arenaStore = getStore();
+  const dash = getReferrerDashboard(wallet, { arenaStore });
+  const nonCash = nonCashReferrerSummary(wallet, { arenaStore });
+  const byWallet = new Map(nonCash.referred.map((row) => [row.wallet, row]));
+  const { referred: _rows, ...nonCashSummary } = nonCash;
+  return {
+    ...dash,
+    referred: dash.referred.map((row) => ({
+      ...row,
+      nonCash: byWallet.get(row.wallet) || null,
+    })),
+    nonCash: nonCashSummary,
+  };
 }
 
-export { getReferrerDashboard, getReferralView, processReferralPayouts };
+export { getReferrerDashboard, processReferralPayouts };
 
 export async function runDueScoring() {
   const store = getStore();
@@ -682,6 +769,13 @@ export async function runDueScoring() {
     const round = store.getRound(id);
     if (!round) continue;
     if (round.status === "scored") {
+      try {
+        applyRoundProgress(store, id);
+      } catch (err) {
+        console.error(
+          JSON.stringify({ event: "forge_progress_error", roundId: id, error: String(err?.message || err) }),
+        );
+      }
       results.push({ roundId: id, skipped: true });
       continue;
     }
@@ -692,6 +786,17 @@ export async function runDueScoring() {
     }
     try {
       const r = await scoreRound(store, id);
+      try {
+        applyRoundProgress(store, id);
+      } catch (progressErr) {
+        console.error(
+          JSON.stringify({
+            event: "forge_progress_error",
+            roundId: id,
+            error: String(progressErr?.message || progressErr),
+          }),
+        );
+      }
       results.push(r);
     } catch (err) {
       results.push({ roundId: id, ok: false, error: String(err?.message || err) });
@@ -785,7 +890,8 @@ export function getRoundResults(roundId) {
       ineligibleReason,
     };
   });
-  const winner = board.prizeWinner || null;
+  const ranking = (board.ranking || []).map((row) => withShare(meta.roundId, row));
+  const prizeWinner = ranking.find((r) => r.prizeEligible && r.prizeRank === 1) || null;
   return {
     roundId: meta.roundId,
     openAt: meta.openAt,
@@ -796,15 +902,15 @@ export function getRoundResults(roundId) {
     closes: round.closes,
     scoredAt: round.scoredAt,
     source: round.closes?.source || null,
-    predictions,
-    ranking: board.ranking,
-    incomplete: board.incomplete,
-    prizeWinner: winner,
-    displayLeader: board.ranking[0] || null,
+    predictions: predictions.map((p) => ({ ...p, progression: safeProgress(p.wallet) })),
+    ranking,
+    incomplete: (board.incomplete || []).map(withProgression),
+    prizeWinner,
+    displayLeader: ranking[0] || null,
     payout: {
       amountUsdc: payout.amountUsdc ?? DAILY_PRIZE_USDC,
-      wallet: payout.wallet || winner?.wallet || null,
-      botName: payout.botName || winner?.botName || null,
+      wallet: payout.wallet || prizeWinner?.wallet || null,
+      botName: payout.botName || prizeWinner?.botName || null,
       paid: Boolean(payout.paid || payout.status === "paid"),
       payoutStatus: payout.status || (payout.paid ? "paid" : "unpaid"),
       paidAt: payout.paidAt || null,

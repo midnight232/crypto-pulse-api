@@ -11,6 +11,8 @@ Pay-per-request **crypto market pulse** for AI agents. **One call replaces four*
 >
 > **Free [Crypto Pulse Prediction Arena](https://cryptopulseapi.com/arena):** bots predict the daily close (BTC, ETH, and SOL). Free entry (no wagering). Sponsor-funded prizes: **$1 USDC daily** / **$10 USDC weekly**, paid **automatically on-chain** while funded. From the 2026-11-13 close through 2026-11-22, prize eligibility requires at least one `GET /v1/pulse` call (free or paid) on the qualifying UTC day (`X-Pulse-Client-Id` = payout wallet). Starting with round 2026-11-23 (first daily round of the Nov 23–29 week), at least one paid call is required (`GET /v1/spots` at $0.005 or `GET /v1/pulse` at $0.02); free-tier pulse calls no longer count. Optional referrals: send `ref` (the referrer's payout wallet) on a bot's first `POST /v1/arena/predict`. Disclosed `official-*` house bots are ineligible. Results: [/arena/results](https://cryptopulseapi.com/arena/results).
 
+**Pulse Forge** (free, non-cash): build a bot from signal modules and starter templates (`GET /v1/forge`), preview quotes from a pulse snapshot, and enter through the existing signed predict path (`POST /v1/forge/enter`). Leaderboards include XP, level, and accuracy streak. Share cards: `/arena/forge/share/:roundId/:wallet` (referral code is the payout wallet). A referred bot that plays 3 distinct UTC days credits 7 non-cash Pro days. Cash prizes, autopay, and the paid-call eligibility rule are unchanged.
+
 ## What it returns
 
 `GET /v1/pulse` (paid, `$0.02` USDC) returns compact JSON:
@@ -67,6 +69,7 @@ PUBLIC_BASE_URL=http://127.0.0.1:4021 npm run test:mcp
 npm run test:autopay
 npm run test:house
 npm run test:pulse-elig
+npm run test:forge
 npm run buy                # full paid flow (needs buyer DEVNET USDC)
 ```
 
@@ -89,6 +92,8 @@ Official MCP Registry: `io.github.midnight232/crypto-pulse` (`mcp/server.json`).
 Live page: https://cryptopulseapi.com/arena
 
 Free skill contest for bots. Predict BTC, ETH, and SOL at the next UTC midnight (12h entry lock). Sign with your Solana wallet; `POST /v1/arena/predict`. Ranked by average absolute % error. **Daily prize:** $1 USDC to the top prize-eligible bot. **Weekly prize:** $10 USDC to the best average over Mon–Sun UTC (min 5 of 7 rounds, and prize-eligible under the rule in force on at least one applicable day). Starting with the round that closes 00:00 UTC on 2026-11-13, prize eligibility requires a qualifying market-data call during the UTC day that ends at close, with `X-Pulse-Client-Id` or the payer wallet equal to your payout wallet. Through round 2026-11-22, a `GET /v1/pulse` call (free daily headers or paid) counts. Starting with round 2026-11-23 (first daily round of the Nov 23–29 week; qualifying usage day 2026-11-22 UTC), at least one paid call is required (`GET /v1/pulse`, `GET /v1/pulse/:asset`, or `GET /v1/spots`); free-tier pulse calls no longer count. The Nov 16–22 weekly still uses the pulse free-or-paid rule. Ineligible bots are still scored and shown. Earlier closed rounds are unchanged. While the prize wallet is funded, payouts are **automatic on-chain** after scoring (program window: daily rounds 2026-11-03..2026-11-30; weekly weeks 2026-11-02, 2026-11-09, 2026-11-16, and 2026-11-23). Kill switch: `ARENA_AUTOPAY=off`. Insufficient balance is recorded as unpaid/owed. Weekly board: `GET /v1/arena/leaderboard/weekly`. Optional referrals: on a bot's first `POST /v1/arena/predict` (or MCP `arena_submit_prediction`), send `ref` equal to the referrer's payout wallet (or header `X-Pulse-Referrer`). The binding never changes. Self-referral is rejected; house bots cannot refer or be referred. The referrer earns `$0.005 USDC` after the referred bot has both a `/v1/pulse` call (free counts) and an Arena prediction on 3 distinct UTC days, plus `$0.01 USDC` on that bot's first paid x402 `/v1/pulse` call. Daily referral payouts are capped at `$1 USDC` (`REFERRAL_DAILY_CAP_USDC`); overflow queues FIFO to the next day. Referral payouts never spend the reserve for remaining prizes. Dashboard: `GET /v1/arena/referrals?wallet=`. Example: `npm run arena:submit -- --asset BTC --price 100000`. Python sample bot: [`examples/arena-bot`](./examples/arena-bot) (`REFERRER` env). Ready-made agent templates: [`examples/templates`](./examples/templates) (LangChain, OpenAI Agents/MCP, ElizaOS, Solana Agent Kit).
+
+**Pulse Forge** adds a free builder on that same entry path: `GET /v1/forge/templates` (baseline, momentum, mean-revert, fear-greed, funding-fade, defi-yield, balanced), `POST /v1/forge/config-message` + signed `POST /v1/forge/bots`, `POST /v1/forge/preview` with a pulse snapshot, then `POST /v1/forge/enter` with per-asset signatures. MCP: `forge_modules`, `forge_templates`, `forge_config_message`, `forge_configure`, `forge_preview`, `forge_enter`, `forge_progress`, `forge_leaderboard`, `forge_share`. XP and share cards are non-cash. USDC prizes and referral autopay are unchanged; referral dashboards add a `nonCash` Pro-day progress object (7 Pro days after 3 play days).
 
 ## Project layout
 

@@ -66,10 +66,16 @@ export function renderRoundResultsHtml({ results, baseUrl }) {
   const rankRows = (r.ranking || [])
     .map((row) => {
       const err = row.avgAbsPctError == null ? "—" : `${Number(row.avgAbsPctError).toFixed(4)}%`;
+      const prog = row.progression
+        ? `<div class="muted">Lv${esc(row.progression.level)} · ${esc(row.progression.xp)} XP · streak ${esc(row.progression.accuracyStreak)}</div>`
+        : "";
+      const share = row.share?.pagePath
+        ? ` <a href="${esc(baseUrl)}${esc(row.share.pagePath)}">share card</a>`
+        : "";
       return `<tr>
         <td>${esc(row.rank)}${row.prizeRank != null ? ` <span class="muted">(prize #${esc(row.prizeRank)})</span>` : ""}</td>
         <td><code>${esc(row.wallet)}</code>${houseBadge(row)}</td>
-        <td>${esc(row.botName || "—")}</td>
+        <td>${esc(row.botName || "—")}${share}${prog}</td>
         <td>${esc(err)}</td>
         <td>${row.prizeEligible === false ? `no${row.ineligibleReason ? ` <span class="muted">(${esc(row.ineligibleReason)})</span>` : ""}` : "yes"}</td>
       </tr>`;

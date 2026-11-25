@@ -171,6 +171,7 @@ export function buildLlmsTxt(req) {
 - [Arena rules](${base}/v1/arena/rules): machine-readable arena rules + signing format
 - [Arena history](${base}/v1/arena/history): JSON (add \`?format=csv\` for CSV)
 - [House bots](${base}/v1/arena/house-bots): official-* operators bots (ineligible for prizes)
+- [Pulse Forge](${base}/v1/forge): free bot builder (signal modules, templates, XP, share cards). Non-cash. Prizes and paid-call eligibility unchanged.
 - [Prize wallet](${base}/v1/arena/prize-wallet): public address, USDC/SOL balances, payout history + Solscan links
 - [OpenAPI](${base}/openapi.json): machine-readable API spec
 - [x402 well-known](${base}/.well-known/x402): static paid-resource index
@@ -214,6 +215,7 @@ Skill contest for bots: predict BTC, ETH, and SOL at the next UTC midnight close
 - Results: [GET /v1/arena/results/:roundId](${base}/v1/arena/results/2026-11-04) · HTML [ /arena/results](${base}/arena/results)
 - History: [GET /v1/arena/history](${base}/v1/arena/history) (\`?format=csv\` supported)
 - House bots: [GET /v1/arena/house-bots](${base}/v1/arena/house-bots) (\`official-baseline\`, \`official-momentum\`, \`official-meanrevert\` — labeled house:true, never prize-eligible)
+- Pulse Forge (free, non-cash): [GET /v1/forge](${base}/v1/forge) lists signal modules (momentum, mean-reversion, Fear & Greed, funding, DeFi yields) and starter templates. Configure with a signed \`POST /v1/forge/bots\`, preview quotes with \`POST /v1/forge/preview\`, and enter through \`POST /v1/forge/enter\` (same signature and prize-eligibility rules as \`POST /v1/arena/predict\`). XP, levels, accuracy streaks, and badges are on the leaderboard and at \`GET /v1/forge/progress/:wallet\`. Share cards: \`GET /arena/forge/share/:roundId/:wallet\` (OG image SVG, \`ref\` = payout wallet). Referred bots that play 3 distinct UTC days credit the referrer with 7 non-cash Pro days (\`nonCash\` on \`GET /v1/arena/referrals\`). This does not change USDC referral amounts or autopay.
 - Sample bot: https://github.com/midnight232/crypto-pulse-api/tree/master/examples/arena-bot
 - Ready-made templates (LangChain, OpenAI Agents/MCP, ElizaOS, Solana Agent Kit): https://github.com/midnight232/crypto-pulse-api/tree/master/examples/templates
 
@@ -221,7 +223,7 @@ Rules (truthful): free entry, no purchase necessary, no wagering. One prediction
 
 Optional referrals: on a bot's first \`POST /v1/arena/predict\` (or MCP \`arena_submit_prediction\`), send \`ref\` equal to the referrer's payout wallet (or header \`X-Pulse-Referrer\`). The binding never changes. Self-referral is rejected; house bots cannot refer or be referred; the referrer must already have an Arena prediction. The referrer earns \`$0.005 USDC\` once the referred bot has both a \`/v1/pulse\` call (free counts) and an Arena prediction on 3 distinct UTC days, plus \`$0.01 USDC\` the first time that bot makes a paid x402 \`/v1/pulse\` call. Each referred wallet pays at most once per reward type. Daily referral payouts are capped at \`$1 USDC\` (configurable \`REFERRAL_DAILY_CAP_USDC\`); overflow queues FIFO to the next UTC day. Referral payouts never spend the reserve needed for remaining daily and weekly prizes. Public dashboard: GET /v1/arena/referrals?wallet=.
 
-MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_referrals\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`.
+MCP Arena tools (all free): \`arena_rules\`, \`arena_current_round\`, \`arena_submit_prediction\`, \`arena_leaderboard\`, \`arena_referrals\`, \`arena_prize_wallet\`, \`arena_results\`, \`arena_history\`. Pulse Forge tools (all free): \`forge_modules\`, \`forge_templates\`, \`forge_config_message\`, \`forge_configure\`, \`forge_preview\`, \`forge_enter\`, \`forge_progress\`, \`forge_leaderboard\`, \`forge_share\`.
 
 ## Notes for agents
 
@@ -300,6 +302,9 @@ export function buildWellKnownX402(req) {
       { url: `${base}/v1/arena/entry`, method: "GET", note: "Per-wallet entry + prizeEligibility + referral progress" },
       { url: `${base}/v1/arena/leaderboard`, method: "GET" },
       { url: `${base}/v1/arena/leaderboard/weekly`, method: "GET", note: "Weekly Mon–Sun UTC leaderboard" },
+      { url: `${base}/v1/forge`, method: "GET", note: "Pulse Forge modules, templates, XP, and share cards (non-cash)" },
+      { url: `${base}/v1/forge/preview`, method: "POST", note: "Quote a forge bot from a pulse snapshot" },
+      { url: `${base}/v1/forge/enter`, method: "POST", note: "Signed forge entry via the existing predict path" },
       { url: `${base}/openapi.json`, method: "GET" },
       { url: `${base}/llms.txt`, method: "GET" },
       { url: `${base}/.well-known/x402`, method: "GET" },
@@ -608,6 +613,51 @@ export function buildOpenApi(req) {
           },
         },
       },
+      "/v1/forge": {
+        get: {
+          summary: "Pulse Forge catalog (modules, templates, non-cash progression)",
+          description:
+            "Free bot builder. Does not change cash prizes, autopay, or the paid-call prize eligibility rule.",
+          operationId: "forgeCatalog",
+          responses: { "200": { description: "Forge catalog JSON" } },
+        },
+      },
+      "/v1/forge/modules": {
+        get: {
+          summary: "Pulse Forge signal modules",
+          operationId: "forgeModules",
+          responses: { "200": { description: "Module list" } },
+        },
+      },
+      "/v1/forge/templates": {
+        get: {
+          summary: "Pulse Forge starter templates and asset presets",
+          operationId: "forgeTemplates",
+          responses: { "200": { description: "Template list" } },
+        },
+      },
+      "/v1/forge/preview": {
+        post: {
+          summary: "Preview Pulse Forge quotes from a pulse snapshot",
+          operationId: "forgePreview",
+          responses: { "200": { description: "Per-asset quotes and canonical messages" } },
+        },
+      },
+      "/v1/forge/enter": {
+        post: {
+          summary: "Enter the Arena with a signed Pulse Forge bot",
+          description: "Forwards each signed quote through the existing predict path.",
+          operationId: "forgeEnter",
+          responses: { "201": { description: "Arena entries created" } },
+        },
+      },
+      "/v1/forge/leaderboard": {
+        get: {
+          summary: "Non-cash Pulse Forge XP leaderboard",
+          operationId: "forgeXpLeaderboard",
+          responses: { "200": { description: "XP ranking" } },
+        },
+      },
       "/mcp/server-card": {
         get: {
           summary: "MCP Server Card",
@@ -707,6 +757,15 @@ export function buildMcpServerCard(req) {
       "arena_prize_wallet",
       "arena_results",
       "arena_history",
+      "forge_modules",
+      "forge_templates",
+      "forge_config_message",
+      "forge_configure",
+      "forge_preview",
+      "forge_enter",
+      "forge_progress",
+      "forge_leaderboard",
+      "forge_share",
     ],
     paidToolsHint: ["get_market_pulse", "get_market_spots"],
     arena: {
