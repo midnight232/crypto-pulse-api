@@ -29,6 +29,8 @@ import {
 import { currentWeekId } from "./prizes.js";
 import { renderArenaHtml } from "./page.js";
 import { renderResultsIndexHtml, renderRoundResultsHtml } from "./results-page.js";
+import { mountForgeRoutes } from "./forge/routes.js";
+import { describeForgeCatalog } from "./forge/signals.js";
 
 function adminAuthorized(req) {
   const expected = (process.env.ARENA_ADMIN_TOKEN || "").trim();
@@ -102,6 +104,7 @@ export function mountArena(app) {
         rules: getRules(),
         baseUrl: publicBaseUrl(req),
         prizeStatus,
+        forge: describeForgeCatalog(),
       });
       res.type("html").send(html);
     } catch (err) {
@@ -356,5 +359,6 @@ export function mountArena(app) {
     }
   });
 
+  mountForgeRoutes(app);
   startArenaScorer();
 }

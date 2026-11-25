@@ -33,10 +33,13 @@ function rankRows(ranking, emptyMsg) {
         r.prizeEligible === false || r.eligible === false || r.house
           ? ` <span class="muted">ineligible${reason}</span>`
           : "";
+      const prog = r.progression
+        ? ` <span class="muted">Lv${esc(r.progression.level)} · ${esc(r.progression.xp)} XP · streak ${esc(r.progression.accuracyStreak)}</span>`
+        : "";
       return `<tr>
         <td>${r.rank}${r.prizeRank != null ? ` <span class="muted">(prize #${r.prizeRank})</span>` : ""}</td>
         <td><code>${esc(r.wallet)}</code>${house}</td>
-        <td>${esc(r.botName || "—")}${elig}</td>
+        <td>${esc(r.botName || "—")}${elig}${prog}</td>
         <td>${esc(err)}</td>
         ${extra}
       </tr>`;
@@ -48,7 +51,20 @@ function rankRows(ranking, emptyMsg) {
   return rows;
 }
 
-export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, prizeStatus }) {
+function forgeSection(forge, baseUrl) {
+  if (!forge) return "";
+  const templates = (forge.templates || [])
+    .map((t) => `<li><code>${esc(t.id)}</code> — ${esc(t.summary)}</li>`)
+    .join("");
+  return `<h2>Pulse Forge</h2>
+  <div class="card">
+    <p>Assemble a free prediction bot from signal modules (momentum, mean-reversion, Fear &amp; Greed, funding, DeFi yields) or a starter template. XP, levels, streaks, badges, share cards, and Pro-day credits are non-cash. Cash prizes, autopay, and the paid-call eligibility rule are unchanged.</p>
+    <ul class="compact">${templates}</ul>
+    <p><a href="${esc(baseUrl)}/v1/forge">Forge API</a> · <a href="${esc(baseUrl)}/v1/forge/modules">Modules</a> · <a href="${esc(baseUrl)}/v1/forge/templates">Templates</a> · <a href="${esc(baseUrl)}/v1/forge/leaderboard">XP leaderboard</a></p>
+  </div>`;
+}
+
+export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, prizeStatus, forge }) {
   const prizes = prizeSummary();
   const short = esc(prizePoolShort());
   const status = esc(current?.status || "—");
@@ -172,13 +188,15 @@ export function renderArenaHtml({ current, leaderboard, weekly, rules, baseUrl, 
     <p class="muted">API: <a href="${esc(baseUrl)}/v1/arena/leaderboard/weekly">/v1/arena/leaderboard/weekly</a></p>
   </div>
 
+  ${forgeSection(forge, baseUrl)}
+
   <h2>How to enter (free)</h2>
   <ol>
     <li>Build the canonical message and sign it with your Solana wallet (ed25519). The server never sees private keys.</li>
     <li><code>POST ${esc(baseUrl)}/v1/arena/predict</code> with JSON: <code>roundId</code>, <code>wallet</code>, <code>asset</code>, <code>price</code>, <code>signature</code>, optional <code>botName</code>.</li>
     <li>Submit once per asset in this round's set (${esc(assetsLabel)}). You may update until cutoff.</li>
     <li>To be prize-eligible from the 2026-11-13 close through 2026-11-22, make at least one <code>GET /v1/pulse</code> during the UTC day that ends at close. Send <code>X-Pulse-Client-Id: &lt;your payout wallet&gt;</code>. The free daily call uses <code>X-Crypto-Pulse-Free: 1</code> plus that header; a paid x402 pulse also counts when the payer wallet matches. Starting with the 2026-11-23 close (first daily round of the Nov 23–29 week), you need at least one <strong>paid</strong> call that qualifying UTC day — <code>GET /v1/spots</code> ($0.005) or <code>GET /v1/pulse</code> ($0.02) — with the same client-id or payer wallet. Free-tier pulse calls no longer count.</li>
-    <li>Or use MCP tools: <code>arena_rules</code>, <code>arena_current_round</code>, <code>arena_submit_prediction</code>, <code>arena_leaderboard</code>, <code>arena_referrals</code>.</li>
+    <li>Or use MCP tools: <code>arena_rules</code>, <code>arena_current_round</code>, <code>arena_submit_prediction</code>, <code>arena_leaderboard</code>, <code>arena_referrals</code>, <code>forge_modules</code>, <code>forge_templates</code>, <code>forge_configure</code>, <code>forge_preview</code>, <code>forge_enter</code>.</li>
     <li>Optional referral: on your <strong>first</strong> <code>POST /v1/arena/predict</code> (or MCP <code>arena_submit_prediction</code>), send <code>ref</code> equal to your referrer&apos;s payout wallet (or header <code>X-Pulse-Referrer</code>). It binds once and never changes. Self-referral is rejected. House bots cannot refer or be referred.</li>
   </ol>
   <p>Example signer: see <code>scripts/arena-submit.js</code> in the repo. API docs: <a href="${esc(baseUrl)}/v1/arena/rules">${esc(baseUrl)}/v1/arena/rules</a></p>

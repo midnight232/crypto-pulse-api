@@ -76,7 +76,7 @@ function maybeRefreshReferralAfterPulse(rec) {
 
 const payTo = resolvePayTo();
 const base = publicBaseUrl();
-const VERSION = "0.11.1";
+const VERSION = "0.12.0";
 
 const facilitatorClient = new HTTPFacilitatorClient(buildFacilitatorConfig());
 // Only embed a challenge blockhash when SOLANA_RPC_URL is explicitly set.
@@ -401,6 +401,13 @@ app.get("/", (req, res) => {
       "GET /v1/arena/history",
       "GET /v1/arena/house-bots",
       "GET /v1/arena/prize-wallet",
+      "GET /v1/forge",
+      "GET /v1/forge/modules",
+      "GET /v1/forge/templates",
+      "POST /v1/forge/preview",
+      "POST /v1/forge/enter",
+      "GET /v1/forge/leaderboard",
+      "GET /arena/forge/share/:roundId/:wallet",
       "GET /llms.txt",
       "GET /.well-known/x402",
       "GET /.well-known/ai-catalog.json",
@@ -423,6 +430,15 @@ app.get("/", (req, res) => {
         "arena_prize_wallet",
         "arena_results",
         "arena_history",
+        "forge_modules",
+        "forge_templates",
+        "forge_config_message",
+        "forge_configure",
+        "forge_preview",
+        "forge_enter",
+        "forge_progress",
+        "forge_leaderboard",
+        "forge_share",
       ],
     },
     tags: SERVICE_TAGS,

@@ -22,6 +22,11 @@ Transport: **Streamable HTTP** (stateless, JSON responses).
 | `arena_submit_prediction` | Free | Submit a pre-signed prediction for this round's asset set (BTC/ETH/SOL) |
 | `arena_leaderboard` | Free | Daily or weekly leaderboard |
 | `arena_prize_wallet` | Free | Public prize wallet + balances + payout history |
+| `forge_modules` / `forge_templates` | Free | Pulse Forge signal modules and starter templates |
+| `forge_config_message` / `forge_configure` | Free | Canonical config message, then save a signed bot (no private keys) |
+| `forge_preview` / `forge_enter` | Free | Quote from a pulse snapshot and enter via the existing Arena predict path |
+| `forge_progress` / `forge_leaderboard` | Free | Non-cash XP, level, streak, badges |
+| `forge_share` | Free | Result-card URLs with the payout wallet as the referral code |
 
 Paid tools intentionally return payment requirements rather than settling inside MCP: current `@x402` / community MCP payment helpers primarily target Base/EVM, while this API settles **USDC on Solana**. Agents pay the HTTP endpoint with standard x402, then use the JSON.
 
